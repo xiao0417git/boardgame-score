@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>テーブルトップ得点ボード（配置変更・ラウンド制・2〜10人対応）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #090d16;
+    }
+    .player-zone {
+      transition: filter 0.15s ease, transform 0.15s ease;
+    }
+    .player-zone:active {
+      filter: brightness(1.15);
+    }
+    @keyframes pulseBorder {
+      0%, 100% { box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.8); }
+      50% { box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.25); }
+    }
+    .swap-target-zone {
+      animation: pulseBorder 1.4s infinite;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="text-white font-sans">
+
+  <!-- メイン全画面コンテナ -->
+  <div id="boardContainer" class="relative w-screen h-screen overflow-hidden">
+    <!-- JSで2〜10人のレイアウトを動的生成 -->
+  </div>
+
+  <!-- 中央のフローティング設定＆ラウンド表示ボタン（通常モード時） -->
+  <button
+    id="centerMenuBtn"
+    class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
+    title="ラウンド進行・設定・配置変更"
+  >
+    <span class="text-[10px] font-bold text-indigo-300 leading-none">ROUND</span>
+    <span id="centerRoundBadge" class="text-base font-black leading-tight">1</span>
+  </button>
+
+  <!-- 配置変更モード中のフローティング操作バー -->
+  <div
+    id="swapControlBar"
+    class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 hidden bg-slate-900/95 border-2 border-amber-400 rounded-2xl px-4 py-3 shadow-2xl flex flex-col items-center gap-2 w-64 text-center"
+  >
+    <p id="swapInstructionText" class="text-xs font-bold text-amber-300">
+      入れ替える1人目をタップ
+    </p>
+    <div class="flex items-center gap-2 w-full">
+      <button
+        id="rotateAllSeatsBtn"
+        type="button"
+        class="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition"
+        title="全員の席を時計回りに1つずらす"
+      >
+        ↻ 全体回転
+      </button>
+      <button
+        id="finishSwapBtn"
+        type="button"
+        class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition"
+      >
+        配置完了
+      </button>
+    </div>
+  </div>
+
+  <!-- 中央設定＆ラウンド管理モーダル -->
+  <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center">
+        <h2 class="font-bold text-lg">ラウンド・テーブル設定</h2>
+        <button id="closeSettingsBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- ラウンド操作セクション -->
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-xs text-slate-400">現在の進行状況</p>
+            <p class="text-xl font-black text-indigo-400">ラウンド <span id="modalRoundNum">1</span></p>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="prevRoundBtn" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
+              ← 戻る
+            </button>
+            <button id="nextRoundBtn" type="button" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition">
+              次のラウンドへ →
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button id="openHistoryBtn" type="button" class="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition">
+            📊 スコア表・修正
+          </button>
+          <button id="enterSwapModeBtn" type="button" class="py-2 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-xs font-bold text-amber-300 transition">
+            🔄 座席・配置変更
+          </button>
+        </div>
+      </div>
+
+      <!-- プレイ人数選択（2〜10人） -->
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">プレイ人数（記録を保持して変更）</p>
+        <div id="playerCountGrid" class="grid grid-cols-3 gap-2">
+          <!-- JSで2〜10ボタン生成 -->
+        </div>
+      </div>
+
+      <!-- リセット操作 -->
+      <div class="pt-2 border-t border-slate-800 space-y-2">
+        <button id="resetScoresBtn" class="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-bold text-sm transition">
+          全ラウンド・得点をリセット（R1へ）
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ラウンド別スコア履歴モーダル -->
+  <div id="historyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center shrink-0">
+        <div>
+          <h2 class="font-bold text-lg">ラウンド別スコア表</h2>
+          <p class="text-xs text-slate-400">セルをタップするとそのラウンドの得点を直接修正できます</p>
+        </div>
+        <button id="closeHistoryBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <div class="overflow-auto border border-slate-800 rounded-xl flex-1">
+        <table class="w-full text-sm text-left border-collapse">
+          <thead id="historyTableHead" class="text-xs bg-slate-800 text-slate-300 sticky top-0 z-10">
+            <!-- JS生成 -->
+          </thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800 bg-slate-950">
+            <!-- JS生成 -->
+          </tbody>
+          <tfoot id="historyTableFoot" class="text-xs font-bold bg-slate-900 text-white border-t-2 border-slate-700 sticky bottom-0">
+            <!-- JS生成 -->
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- テンキー得点入力モーダル（その人の座る向きに回転表示） -->
+  <div id="keypadModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div id="keypadCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-4 space-y-3 shadow-2xl transition-transform">
+      <div class="flex justify-between items-center">
+        <div>
+          <span id="kpSubTitle" class="text-xs text-indigo-400 font-bold">R1 の得点を加減算</span>
+          <h3 id="kpPlayerName" class="font-bold text-lg leading-tight">A</h3>
+        </div>
+        <button id="closeKpBtn" class="text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
+      </div>
+
+      <!-- 数値ディスプレイ -->
+      <div class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 flex justify-between items-center">
+        <span class="text-xs text-slate-500">加算値</span>
+        <div class="text-3xl font-mono font-black">
+          <span id="kpSign" class="text-emerald-400">+</span><span id="kpDigits">0</span>
+        </div>
+      </div>
+
+      <!-- テンキー -->
+      <div class="grid grid-cols-3 gap-1.5 text-xl font-bold">
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="7">7</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="8">8</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="9">9</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="4">4</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="5">5</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="6">6</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="1">1</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="2">2</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="3">3</button>
+        <button type="button" id="kpToggleSign" class="bg-slate-800 hover:bg-slate-700 text-amber-400 py-3 rounded-xl text-base">+ / -</button>
+        <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="0">0</button>
+        <button type="button" id="kpClear" class="bg-slate-800 hover:bg-slate-700 text-rose-400 py-3 rounded-xl text-base">C</button>
+      </div>
+
+      <button id="kpConfirm" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg transition">
+        決定
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 状態管理 & データ永続化（座席順を独立保持）
+    // ==========================================
+    const STORAGE_KEY = 'tabletop_scoreboard_swap_v1';
+
+    const PLAYER_PALETTE = [
+      { name: 'A', bg: '#1e293b', accent: '#38bdf8' },
+      { name: 'B', bg: '#172554', accent: '#60a5fa' },
+      { name: 'C', bg: '#31102f', accent: '#f472b6' },
+      { name: 'D', bg: '#064e3b', accent: '#34d399' },
+      { name: 'E', bg: '#3b1d0e', accent: '#fb923c' },
+      { name: 'F', bg: '#2e1065', accent: '#a78bfa' },
+      { name: 'G', bg: '#3f2e05', accent: '#facc15' },
+      { name: 'H', bg: '#083344', accent: '#22d3ee' },
+      { name: 'I', bg: '#3f121d', accent: '#fb7185' },
+      { name: 'J', bg: '#1a2e05', accent: '#a3e635' }
+    ];
+
+    const DEFAULT_STATE = {
+      playerCount: 4,
+      currentRound: 1,
+      // players配列の並び順そのものが「座席0〜9の配置」を表す
+      players: PLAYER_PALETTE.map((item, idx) => ({
+        id: 'player_' + idx,
+        name: item.name,
+        roundScores: [0],
+        bg: item.bg,
+        accent: item.accent
+      }))
+    };
+
+    let state = loadState();
+    let activeSeatIdx = null;
+    let kpDigitsStr = '0';
+    let kpIsNegative = false;
+
+    // 配置変更モード用の状態
+    let isSwapMode = false;
+    let selectedSwapSeatIdx = null;
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.players && parsed.players.length === 10 && typeof parsed.currentRound === 'number') {
+            return parsed;
+          }
+        }
+      } catch (e) {}
+      return JSON.parse(JSON.stringify(DEFAULT_STATE));
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function ensureRoundArrayLength(targetRound) {
+      state.players.forEach(p => {
+        while (p.roundScores.length < targetRound) {
+          p.roundScores.push(0);
+        }
+      });
+    }
+
+    function getTotalScore(player) {
+      return player.roundScores.reduce((sum, val) => sum + val, 0);
+    }
+
+    function getCurrentRoundScore(player) {
+      ensureRoundArrayLength(state.currentRound);
+      return player.roundScores[state.currentRound - 1] || 0;
+    }
+
+    // ==========================================
+    // 2. 設定モーダルの2〜10人ボタン初期化
+    // ==========================================
+    const playerCountGrid = document.getElementById('playerCountGrid');
+    for (let n = 2; n <= 10; n++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.dataset.count = n;
+      btn.textContent = `${n}人`;
+      btn.addEventListener('click', () => {
+        // 記録はそのまま保持し、表示する座席数だけ変更
+        state.playerCount = n;
+        saveState();
+        render();
+        settingsModal.classList.add('hidden');
+      });
+      playerCountGrid.appendChild(btn);
+    }
+
+    // ==========================================
+    // 3. レイアウト描画 (2人〜10人)
+    // ==========================================
+    const boardContainer = document.getElementById('boardContainer');
+    const centerRoundBadge = document.getElementById('centerRoundBadge');
+    const modalRoundNum = document.getElementById('modalRoundNum');
+    const centerMenuBtn = document.getElementById('centerMenuBtn');
+    const swapControlBar = document.getElementById('swapControlBar');
+    const swapInstructionText = document.getElementById('swapInstructionText');
+
+    function render() {
+      ensureRoundArrayLength(state.currentRound);
+      boardContainer.innerHTML = '';
+      const count = state.playerCount;
+
+      centerRoundBadge.textContent = state.currentRound;
+      modalRoundNum.textContent = state.currentRound;
+
+      // 配置変更モードと通常モードの中央UI切り替え
+      if (isSwapMode) {
+        centerMenuBtn.classList.add('hidden');
+        swapControlBar.classList.remove('hidden');
+        if (selectedSwapSeatIdx === null) {
+          swapInstructionText.textContent = '入れ替える1人目をタップ';
+        } else {
+          const pName = state.players[selectedSwapSeatIdx].name;
+          swapInstructionText.textContent = `「${pName}」と入れ替える相手をタップ`;
+        }
+      } else {
+        centerMenuBtn.classList.remove('hidden');
+        swapControlBar.classList.add('hidden');
+      }
+
+      // 人数選択ボタンのハイライト更新
+      document.querySelectorAll('#playerCountGrid button').forEach(btn => {
+        const isCurrent = Number(btn.dataset.count) === count;
+        btn.className = isCurrent
+          ? 'py-2.5 rounded-xl font-bold border-2 border-indigo-400 bg-indigo-600 text-white transition'
+          : 'py-2.5 rounded-xl font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+      });
+
+      if (count === 2) {
+        renderTwoPlayers();
+      } else if (count === 3) {
+        renderThreePlayers();
+      } else {
+        renderTableGridPlayers(count);
+      }
+    }
+
+    // 【2人用】上下2分割（座席0: 上180度 / 座席1: 下0度）
+    function renderTwoPlayers() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
+      wrapper.appendChild(createRectZone(0, 180, 'normal'));
+      wrapper.appendChild(createRectZone(1, 0, 'normal'));
+      boardContainer.appendChild(wrapper);
+    }
+
+    // 【3人用】Y字3分割（座席0: 下0度 / 座席1: 左90度 / 座席2: 右-90度）
+    function renderThreePlayers() {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'relative w-full h-full';
+
+      // 座席1: 左上 (90deg)
+      const zone1 = document.createElement('div');
+      zone1.className = `player-zone absolute inset-0 ${getSwapZoneClasses(1)}`;
+      zone1.style.backgroundColor = state.players[1].bg;
+      zone1.style.clipPath = 'polygon(0% 0%, 50% 0%, 50% 50%, 0% 85%)';
+      zone1.innerHTML = `<div style="position:absolute; left:24%; top:36%; transform:translate(-50%,-50%)">${buildInnerUI(1, 90, 'compact')}</div>`;
+      attachZoneEvents(zone1, 1, 90);
+
+      // 座席2: 右上 (-90deg)
+      const zone2 = document.createElement('div');
+      zone2.className = `player-zone absolute inset-0 ${getSwapZoneClasses(2)}`;
+      zone2.style.backgroundColor = state.players[2].bg;
+      zone2.style.clipPath = 'polygon(50% 0%, 100% 0%, 100% 85%, 50% 50%)';
+      zone2.innerHTML = `<div style="position:absolute; left:76%; top:36%; transform:translate(-50%,-50%)">${buildInnerUI(2, -90, 'compact')}</div>`;
+      attachZoneEvents(zone2, 2, -90);
+
+      // 座席0: 下部 (0deg)
+      const zone0 = document.createElement('div');
+      zone0.className = `player-zone absolute inset-0 ${getSwapZoneClasses(0)}`;
+      zone0.style.backgroundColor = state.players[0].bg;
+      zone0.style.clipPath = 'polygon(0% 85%, 50% 50%, 100% 85%, 100% 100%, 0% 100%)';
+      zone0.innerHTML = `<div style="position:absolute; left:50%; top:78%; transform:translate(-50%,-50%)">${buildInnerUI(0, 0, 'compact')}</div>`;
+      attachZoneEvents(zone0, 0, 0);
+
+      const svgLines = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svgLines.setAttribute('viewBox', '0 0 100 100');
+      svgLines.setAttribute('preserveAspectRatio', 'none');
+      svgLines.setAttribute('class', 'pointer-events-none absolute inset-0 w-full h-full z-10');
+      svgLines.innerHTML = `
+        <line x1="50" y1="0" x2="50" y2="50" stroke="#475569" stroke-width="0.6" />
+        <line x1="50" y1="50" x2="0" y2="85" stroke="#475569" stroke-width="0.6" />
+        <line x1="50" y1="50" x2="100" y2="85" stroke="#475569" stroke-width="0.6" />
+      `;
+
+      wrapper.append(zone1, zone2, zone0, svgLines);
+      boardContainer.appendChild(wrapper);
+    }
+
+    // 【4人〜10人用】テーブル上下対面グリッド
+    function renderTableGridPlayers(count) {
+      const bottomCount = Math.ceil(count / 2);
+      const topCount = Math.floor(count / 2);
+      const sizeMode = count <= 4 ? 'normal' : count <= 6 ? 'compact' : 'mini';
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
+
+      const topRow = document.createElement('div');
+      topRow.className = 'w-full h-1/2 grid divide-x divide-slate-600';
+      topRow.style.gridTemplateColumns = `repeat(${topCount}, minmax(0, 1fr))`;
+
+      for (let i = count - 1; i >= bottomCount; i--) {
+        topRow.appendChild(createRectZone(i, 180, sizeMode));
+      }
+
+      const bottomRow = document.createElement('div');
+      bottomRow.className = 'w-full h-1/2 grid divide-x divide-slate-600';
+      bottomRow.style.gridTemplateColumns = `repeat(${bottomCount}, minmax(0, 1fr))`;
+
+      for (let i = 0; i < bottomCount; i++) {
+        bottomRow.appendChild(createRectZone(i, 0, sizeMode));
+      }
+
+      wrapper.append(topRow, bottomRow);
+      boardContainer.appendChild(wrapper);
+    }
+
+    function getSwapZoneClasses(seatIdx) {
+      if (!isSwapMode) return '';
+      if (selectedSwapSeatIdx === seatIdx) {
+        return 'ring-4 ring-inset ring-amber-400 brightness-125';
+      }
+      return 'swap-target-zone';
+    }
+
+    function createRectZone(seatIdx, rotateDeg, sizeMode) {
+      const p = state.players[seatIdx];
+      const zone = document.createElement('div');
+      zone.className = `player-zone relative w-full h-full flex items-center justify-center overflow-hidden ${getSwapZoneClasses(seatIdx)}`;
+      zone.style.backgroundColor = p.bg;
+
+      zone.innerHTML = buildInnerUI(seatIdx, rotateDeg, sizeMode);
+      attachZoneEvents(zone, seatIdx, rotateDeg);
+      return zone;
+    }
+
+    // ==========================================
+    // 4. 各プレイヤー内のUIパーツ
+    // ==========================================
+    function buildInnerUI(seatIdx, rotateDeg, sizeMode = 'normal') {
+      const p = state.players[seatIdx];
+      const totalScore = getTotalScore(p);
+      const curRoundScore = getCurrentRoundScore(p);
+      const curSign = curRoundScore > 0 ? `+${curRoundScore}` : `${curRoundScore}`;
+
+      let ovalClass = 'w-28 h-40 sm:w-36 sm:h-48 text-5xl sm:text-6xl';
+      let nameClass = 'text-xl sm:text-2xl';
+      let btnClass = 'w-9 h-9 sm:w-11 sm:h-11 text-lg';
+      let gapClass = 'gap-1.5 sm:gap-2.5';
+
+      if (sizeMode === 'compact') {
+        ovalClass = 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-5xl';
+        nameClass = 'text-base sm:text-xl';
+        btnClass = 'w-7 h-7 sm:w-9 sm:h-9 text-base';
+        gapClass = 'gap-1 sm:gap-2';
+      } else if (sizeMode === 'mini') {
+        ovalClass = 'w-14 h-24 sm:w-20 sm:h-32 text-2xl sm:text-4xl';
+        nameClass = 'text-sm sm:text-lg';
+        btnClass = 'w-6 h-6 sm:w-8 sm:h-8 text-xs sm:text-base';
+        gapClass = 'gap-0.5 sm:gap-1.5';
+      }
+
+      // 配置変更モード中は操作ボタンを隠し、スワップ選択バッジを表示
+      if (isSwapMode) {
+        const isSelected = selectedSwapSeatIdx === seatIdx;
+        return `
+          <div class="flex flex-col items-center justify-center gap-1.5 pointer-events-none" style="transform: rotate(${rotateDeg}deg);">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black ${isSelected ? 'bg-amber-400 text-slate-950' : 'bg-black/50 text-amber-300 border border-amber-400/50'}">
+              ${isSelected ? '選択中' : 'タップで入替'}
+            </span>
+            <div class="font-black ${nameClass}" style="color: ${p.accent};">${escapeHTML(p.name)}</div>
+            <div class="px-4 py-1 rounded-full bg-black/40 border border-white/20 font-mono font-bold text-lg">
+              ${totalScore} pt
+            </div>
+          </div>
+        `;
+      }
+
+      if (sizeMode === 'mini') {
+        return `
+          <div class="flex flex-col items-center justify-center gap-0.5" style="transform: rotate(${rotateDeg}deg);">
+            <button
+              type="button"
+              class="edit-name-btn px-2 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[72px] truncate"
+              style="color: ${p.accent};"
+            >${escapeHTML(p.name)}</button>
+
+            <button
+              type="button"
+              class="score-oval-btn ${ovalClass} rounded-[999px] border-2 bg-black/25 hover:bg-black/40 active:scale-95 flex flex-col items-center justify-center font-mono font-black shadow-inner transition"
+              style="border-color: ${p.accent};"
+            >
+              <span>${totalScore}</span>
+              <span class="text-[10px] font-normal text-slate-300 leading-none mt-0.5">R${state.currentRound}: ${curSign}</span>
+            </button>
+
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <button type="button" class="minus-one-btn ${btnClass} rounded-full bg-black/35 hover:bg-black/55 active:scale-90 border border-white/15 font-bold flex items-center justify-center">−</button>
+              <button type="button" class="plus-one-btn ${btnClass} rounded-full bg-black/35 hover:bg-black/55 active:scale-90 border border-white/15 font-bold flex items-center justify-center">＋</button>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="flex flex-col items-center justify-center gap-1" style="transform: rotate(${rotateDeg}deg);">
+          <button
+            type="button"
+            class="edit-name-btn px-3 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[120px] truncate"
+            style="color: ${p.accent};"
+            title="タップして名前変更"
+          >${escapeHTML(p.name)}</button>
+
+          <div class="flex items-center ${gapClass}">
+            <button
+              type="button"
+              class="minus-one-btn ${btnClass} rounded-full bg-black/30 hover:bg-black/50 active:scale-90 border border-white/15 font-bold flex items-center justify-center"
+            >−</button>
+
+            <button
+              type="button"
+              class="score-oval-btn ${ovalClass} rounded-[999px] border-2 bg-black/25 hover:bg-black/40 active:scale-95 flex flex-col items-center justify-center font-mono font-black shadow-inner transition"
+              style="border-color: ${p.accent};"
+              title="タップしてテンキー入力"
+            >
+              <span class="leading-none">${totalScore}</span>
+              <span class="text-xs font-semibold text-slate-300/90 mt-1.5">R${state.currentRound}: ${curSign}</span>
+            </button>
+
+            <button
+              type="button"
+              class="plus-one-btn ${btnClass} rounded-full bg-black/30 hover:bg-black/50 active:scale-90 border border-white/15 font-bold flex items-center justify-center"
+            >＋</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // イベント紐付け（通常モード時 vs 配置変更モード時）
+    function attachZoneEvents(container, seatIdx, rotateDeg) {
+      if (isSwapMode) {
+        container.addEventListener('click', (e) => {
+          e.stopPropagation();
+          handleSeatSwapTap(seatIdx);
+        });
+        return;
+      }
+
+      container.querySelector('.plus-one-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        ensureRoundArrayLength(state.currentRound);
+        state.players[seatIdx].roundScores[state.currentRound - 1] += 1;
+        saveState();
+        render();
+      });
+
+      container.querySelector('.minus-one-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        ensureRoundArrayLength(state.currentRound);
+        state.players[seatIdx].roundScores[state.currentRound - 1] -= 1;
+        saveState();
+        render();
+      });
+
+      container.querySelector('.score-oval-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        openKeypadModal(seatIdx, rotateDeg);
+      });
+
+      container.querySelector('.edit-name-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentName = state.players[seatIdx].name;
+        const newName = prompt('プレイヤー名を入力してください', currentName);
+        if (newName !== null && newName.trim() !== '') {
+          state.players[seatIdx].name = newName.trim().slice(0, 8);
+          saveState();
+          render();
+        }
+      });
+    }
+
+    // ==========================================
+    // 5. 配置変更（座席スワップ＆全体回転）ロジック
+    // ==========================================
+    function handleSeatSwapTap(seatIdx) {
+      if (selectedSwapSeatIdx === null) {
+        // 1人目を選択
+        selectedSwapSeatIdx = seatIdx;
+        render();
+      } else if (selectedSwapSeatIdx === seatIdx) {
+        // 同じ人をもう一度タップしたら選択解除
+        selectedSwapSeatIdx = null;
+        render();
+      } else {
+        // 1人目と2人目のプレイヤーオブジェクト（名前・全ラウンド記録・カラー）を丸ごと交換
+        const temp = state.players[selectedSwapSeatIdx];
+        state.players[selectedSwapSeatIdx] = state.players[seatIdx];
+        state.players[seatIdx] = temp;
+
+        selectedSwapSeatIdx = null;
+        saveState();
+        render();
+      }
+    }
+
+    // 現在表示中のメンバーの座席を時計回りに1つずつずらす
+    document.getElementById('rotateAllSeatsBtn').addEventListener('click', () => {
+      const count = state.playerCount;
+      const activeSlice = state.players.slice(0, count);
+      const lastPlayer = activeSlice.pop();
+      activeSlice.unshift(lastPlayer);
+
+      for (let i = 0; i < count; i++) {
+        state.players[i] = activeSlice[i];
+      }
+      selectedSwapSeatIdx = null;
+      saveState();
+      render();
+    });
+
+    document.getElementById('enterSwapModeBtn').addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+      isSwapMode = true;
+      selectedSwapSeatIdx = null;
+      render();
+    });
+
+    document.getElementById('finishSwapBtn').addEventListener('click', () => {
+      isSwapMode = false;
+      selectedSwapSeatIdx = null;
+      render();
+    });
+
+    // ==========================================
+    // 6. ラウンド進行・履歴テーブル機能
+    // ==========================================
+    document.getElementById('nextRoundBtn').addEventListener('click', () => {
+      state.currentRound += 1;
+      ensureRoundArrayLength(state.currentRound);
+      saveState();
+      render();
+    });
+
+    document.getElementById('prevRoundBtn').addEventListener('click', () => {
+      if (state.currentRound > 1) {
+        state.currentRound -= 1;
+        saveState();
+        render();
+      }
+    });
+
+    const historyModal = document.getElementById('historyModal');
+    const historyTableHead = document.getElementById('historyTableHead');
+    const historyTableBody = document.getElementById('historyTableBody');
+    const historyTableFoot = document.getElementById('historyTableFoot');
+
+    document.getElementById('openHistoryBtn').addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+      renderHistoryTable();
+      historyModal.classList.remove('hidden');
+    });
+
+    document.getElementById('closeHistoryBtn').addEventListener('click', () => {
+      historyModal.classList.add('hidden');
+    });
+    historyModal.addEventListener('click', (e) => {
+      if (e.target === historyModal) historyModal.classList.add('hidden');
+    });
+
+    function renderHistoryTable() {
+      const activePlayers = state.players.slice(0, state.playerCount);
+      const maxRound = Math.max(state.currentRound, ...activePlayers.map(p => p.roundScores.length));
+
+      historyTableHead.innerHTML = `
+        <tr>
+          <th class="px-3 py-2.5 sticky left-0 bg-slate-800">R</th>
+          ${activePlayers.map(p => `
+            <th class="px-3 py-2.5 text-right whitespace-nowrap" style="color:${p.accent}">
+              ${escapeHTML(p.name)}
+            </th>
+          `).join('')}
+        </tr>
+      `;
+
+      let bodyHTML = '';
+      for (let r = 1; r <= maxRound; r++) {
+        const isCurrent = r === state.currentRound;
+        bodyHTML += `
+          <tr class="${isCurrent ? 'bg-indigo-950/40' : 'hover:bg-slate-900'}">
+            <td class="px-3 py-2 font-mono font-bold sticky left-0 ${isCurrent ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-950 text-slate-400'}">
+              R${r}
+            </td>
+            ${activePlayers.map((p, seatIdx) => {
+              const val = p.roundScores[r - 1] ?? 0;
+              const disp = val > 0 ? `+${val}` : `${val}`;
+              return `
+                <td class="px-3 py-2 text-right font-mono">
+                  <button
+                    type="button"
+                    class="edit-cell-btn px-2 py-1 rounded hover:bg-slate-800 underline decoration-slate-600"
+                    data-seat="${seatIdx}"
+                    data-round="${r}"
+                  >${disp}</button>
+                </td>
+              `;
+            }).join('')}
+          </tr>
+        `;
+      }
+      historyTableBody.innerHTML = bodyHTML;
+
+      historyTableFoot.innerHTML = `
+        <tr>
+          <td class="px-3 py-2.5 sticky left-0 bg-slate-900">合計</td>
+          ${activePlayers.map(p => `
+            <td class="px-3 py-2.5 text-right font-mono text-base">${getTotalScore(p)}</td>
+          `).join('')}
+        </tr>
+      `;
+
+      document.querySelectorAll('.edit-cell-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const seatIdx = Number(btn.dataset.seat);
+          const round = Number(btn.dataset.round);
+          const player = state.players[seatIdx];
+          const oldVal = player.roundScores[round - 1] ?? 0;
+          const input = prompt(`${player.name} の R${round} 獲得点を入力してください（例: 15, -5）`, oldVal);
+          if (input !== null && input.trim() !== '' && !isNaN(Number(input))) {
+            ensureRoundArrayLength(round);
+            player.roundScores[round - 1] = parseInt(input, 10);
+            saveState();
+            render();
+            renderHistoryTable();
+          }
+        });
+      });
+    }
+
+    // ==========================================
+    // 7. テンキーモーダル（現在ラウンドに加算）
+    // ==========================================
+    const keypadModal = document.getElementById('keypadModal');
+    const keypadCard = document.getElementById('keypadCard');
+    const kpSubTitle = document.getElementById('kpSubTitle');
+    const kpPlayerName = document.getElementById('kpPlayerName');
+    const kpSign = document.getElementById('kpSign');
+    const kpDigits = document.getElementById('kpDigits');
+
+    function openKeypadModal(seatIdx, rotateDeg) {
+      activeSeatIdx = seatIdx;
+      kpDigitsStr = '0';
+      kpIsNegative = false;
+      const p = state.players[seatIdx];
+      kpSubTitle.textContent = `R${state.currentRound} の得点を加減算`;
+      kpPlayerName.textContent = `${p.name}（累計: ${getTotalScore(p)}点）`;
+      keypadCard.style.transform = `rotate(${rotateDeg}deg)`;
+      updateKpDisplay();
+      keypadModal.classList.remove('hidden');
+    }
+
+    function closeKeypadModal() {
+      keypadModal.classList.add('hidden');
+      activeSeatIdx = null;
+    }
+
+    function updateKpDisplay() {
+      kpSign.textContent = kpIsNegative ? '-' : '+';
+      kpSign.className = kpIsNegative ? 'text-rose-400' : 'text-emerald-400';
+      kpDigits.textContent = kpDigitsStr;
+    }
+
+    document.querySelectorAll('.kp-num').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const n = btn.dataset.n;
+        if (kpDigitsStr === '0') kpDigitsStr = n;
+        else if (kpDigitsStr.length < 4) kpDigitsStr += n;
+        updateKpDisplay();
+      });
+    });
+
+    document.getElementById('kpToggleSign').addEventListener('click', () => {
+      kpIsNegative = !kpIsNegative;
+      updateKpDisplay();
+    });
+
+    document.getElementById('kpClear').addEventListener('click', () => {
+      kpDigitsStr = '0';
+      kpIsNegative = false;
+      updateKpDisplay();
+    });
+
+    document.getElementById('kpConfirm').addEventListener('click', () => {
+      if (activeSeatIdx !== null) {
+        const val = parseInt(kpDigitsStr, 10) || 0;
+        ensureRoundArrayLength(state.currentRound);
+        state.players[activeSeatIdx].roundScores[state.currentRound - 1] += kpIsNegative ? -val : val;
+        saveState();
+        render();
+      }
+      closeKeypadModal();
+    });
+
+    document.getElementById('closeKpBtn').addEventListener('click', closeKeypadModal);
+    keypadModal.addEventListener('click', (e) => {
+      if (e.target === keypadModal) closeKeypadModal();
+    });
+
+    // ==========================================
+    // 8. 中央設定モーダル制御
+    // ==========================================
+    const settingsModal = document.getElementById('settingsModal');
+    centerMenuBtn.addEventListener('click', () => {
+      settingsModal.classList.remove('hidden');
+    });
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+      settingsModal.classList.add('hidden');
+    });
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal) settingsModal.classList.add('hidden');
+    });
+
+    document.getElementById('resetScoresBtn').addEventListener('click', () => {
+      if (confirm('全ラウンドの記録と得点をリセットして R1 から始めますか？')) {
+        state.currentRound = 1;
+        state.players.forEach(p => p.roundScores = [0]);
+        saveState();
+        render();
+        settingsModal.classList.add('hidden');
+      }
+    });
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    // 初回描画
+    render();
+  </script>
+</body>
+</html>
