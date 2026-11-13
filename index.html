@@ -58,9 +58,14 @@
 </head>
 <body class="text-white font-sans">
 
-  <div id="boardContainer" class="relative w-full h-[100dvh] overflow-hidden"></div>
+  <!-- メイン全画面コンテナ（100dvhでブラウザのバーを除いた実表示領域にピッタリ合わせる） -->
+  <div id="boardContainer" class="relative w-full h-[100dvh] overflow-hidden">
+    <!-- JSで2〜10人のレイアウトを動的生成 -->
+  </div>
 
+  <!-- 中央のフローティングコントロール群 -->
   <div id="centerHub" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5">
+    <!-- 共有タイマー表示ピル -->
     <div id="sharedTimerPill" class="hidden bg-slate-900/95 border-2 border-cyan-400 rounded-full px-3.5 py-1 shadow-2xl flex items-center gap-2">
       <span class="text-[10px] font-bold text-cyan-300">共有</span>
       <span id="sharedTimerText" class="font-mono font-black text-base text-white">03:00</span>
@@ -68,9 +73,10 @@
       <button id="sharedTimerResetBtn" type="button" class="text-xs text-slate-400 hover:text-white px-1">↺</button>
     </div>
 
+    <!-- 中央ラウンド＆設定ボタン -->
     <button
       id="centerMenuBtn"
-      class="rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
+      class="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
       style="width: 52px; height: 52px;"
       title="ラウンド・タイマー・配置設定"
     >
@@ -78,6 +84,7 @@
       <span id="centerRoundBadge" class="text-base font-black leading-tight">1</span>
     </button>
 
+    <!-- 個別タイマー用の一時停止/再開ボタン -->
     <div id="turnTimerControlPill" class="hidden bg-slate-900/95 border border-emerald-400/70 rounded-full px-3 py-1 shadow-xl flex items-center gap-2">
       <button id="turnTimerToggleBtn" type="button" class="text-xs font-bold text-emerald-300 flex items-center gap-1">
         <span id="turnTimerToggleIcon">▶</span> <span id="turnTimerToggleLabel">開始</span>
@@ -87,35 +94,71 @@
     </div>
   </div>
 
+  <!-- 配置変更モード中のフローティング操作バー -->
   <div
     id="swapControlBar"
     class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 hidden bg-slate-900/95 border-2 border-amber-400 rounded-2xl px-4 py-3 shadow-2xl flex flex-col items-center gap-2 w-64 text-center"
   >
-    <p id="swapInstructionText" class="text-xs font-bold text-amber-300">入れ替える1人目をタップ</p>
+    <p id="swapInstructionText" class="text-xs font-bold text-amber-300">
+      入れ替える1人目をタップ
+    </p>
     <div class="flex items-center gap-2 w-full">
-      <button id="rotateAllSeatsBtn" type="button" class="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition">↻ 全体回転</button>
-      <button id="finishSwapBtn" type="button" class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition">配置完了</button>
+      <button
+        id="rotateAllSeatsBtn"
+        type="button"
+        class="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition"
+      >
+        ↻ 全体回転
+      </button>
+      <button
+        id="finishSwapBtn"
+        type="button"
+        class="flex-1 py-1.5 px-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition"
+      >
+        配置完了
+      </button>
     </div>
   </div>
 
+  <!-- プレイヤー名＆カラー変更モーダル（常に正位置で表示） -->
   <div id="playerEditModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div id="playerEditCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-base text-slate-200">プレイヤー設定</h3>
         <button id="closePlayerEditBtn" type="button" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
       </div>
+
+      <!-- 名前入力 -->
       <div class="space-y-1.5">
         <label for="editPlayerNameInput" class="text-xs font-bold text-slate-400">名前（最大8文字）</label>
-        <input type="text" id="editPlayerNameInput" maxlength="8" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-base font-bold text-white focus:outline-none focus:border-indigo-400" placeholder="プレイヤー名" />
+        <input
+          type="text"
+          id="editPlayerNameInput"
+          maxlength="8"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-base font-bold text-white focus:outline-none focus:border-indigo-400"
+          placeholder="プレイヤー名"
+        />
       </div>
+
+      <!-- カラーパレット選択 -->
       <div class="space-y-2">
         <p class="text-xs font-bold text-slate-400">テーマカラー</p>
-        <div id="colorPaletteGrid" class="grid grid-cols-5 gap-2.5"></div>
+        <div id="colorPaletteGrid" class="grid grid-cols-5 gap-2.5">
+          <!-- JSで10色の丸ボタンを生成 -->
+        </div>
       </div>
-      <button id="savePlayerEditBtn" type="button" class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-white shadow-lg transition">変更を保存</button>
+
+      <button
+        id="savePlayerEditBtn"
+        type="button"
+        class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-white shadow-lg transition"
+      >
+        変更を保存
+      </button>
     </div>
   </div>
 
+  <!-- 中央設定モーダル -->
   <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl max-h-[85dvh] overflow-y-auto">
       <div class="flex justify-between items-center">
@@ -123,20 +166,7 @@
         <button id="closeSettingsBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
       </div>
 
-      <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">📱 表示の向き（置き方）</p>
-        <div class="grid grid-cols-2 gap-1.5 text-xs font-bold">
-          <button type="button" data-orient="table" class="orient-btn py-2 px-2 rounded-lg border transition flex flex-col items-center gap-0.5">
-            <span>🔄 テーブル置き</span>
-            <span class="text-[10px] font-normal opacity-80">対面の向きに回転</span>
-          </button>
-          <button type="button" data-orient="stand" class="orient-btn py-2 px-2 rounded-lg border transition flex flex-col items-center gap-0.5">
-            <span>📱 スタンド立て</span>
-            <span class="text-[10px] font-normal opacity-80">全員同じ向き（正面）</span>
-          </button>
-        </div>
-      </div>
-
+      <!-- 1. ラウンド＆座席管理 -->
       <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
         <div class="flex justify-between items-center">
           <div>
@@ -144,16 +174,26 @@
             <p class="text-xl font-black text-indigo-400">ラウンド <span id="modalRoundNum">1</span></p>
           </div>
           <div class="flex items-center gap-1.5">
-            <button id="prevRoundBtn" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">← 戻る</button>
-            <button id="nextRoundBtn" type="button" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition">次ラウンド →</button>
+            <button id="prevRoundBtn" type="button" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition">
+              ← 戻る
+            </button>
+            <button id="nextRoundBtn" type="button" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition">
+              次ラウンド →
+            </button>
           </div>
         </div>
+
         <div class="grid grid-cols-2 gap-2">
-          <button id="openHistoryBtn" type="button" class="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition">📊 スコア表・修正</button>
-          <button id="enterSwapModeBtn" type="button" class="py-2 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-xs font-bold text-amber-300 transition">🔄 座席・配置変更</button>
+          <button id="openHistoryBtn" type="button" class="py-2 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition">
+            📊 スコア表・修正
+          </button>
+          <button id="enterSwapModeBtn" type="button" class="py-2 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-xs font-bold text-amber-300 transition">
+            🔄 座席・配置変更
+          </button>
         </div>
       </div>
 
+      <!-- 2. タイマーモード設定 -->
       <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">⏱ タイマーモード</p>
         <div class="grid grid-cols-2 gap-1.5 text-xs font-bold">
@@ -163,6 +203,7 @@
           <button type="button" data-tmode="shot" class="tmode-btn py-2 px-2 rounded-lg border transition">1手秒読み制</button>
         </div>
 
+        <!-- モード別の秒数設定パネル -->
         <div id="timerConfigPanel" class="hidden pt-2 border-t border-slate-800 space-y-2.5">
           <p id="timerModeDesc" class="text-[11px] text-slate-400 leading-relaxed"></p>
           <div class="flex items-center justify-between gap-2">
@@ -180,11 +221,13 @@
             <button type="button" id="applyTimerConfigBtn" class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white">適用</button>
           </div>
 
+          <!-- 持ち時間制専用：切れ負け後の1手秒読み移行オプション -->
           <div id="chessByoyomiOptionBox" class="hidden pt-2.5 border-t border-slate-800 space-y-2">
             <label class="flex items-center justify-between cursor-pointer">
               <span class="text-xs font-bold text-amber-300">持ち時間切れ後 ➔ 1手秒読みに移行</span>
               <input type="checkbox" id="chessFallbackToggle" class="w-4 h-4 accent-amber-400 rounded" />
             </label>
+
             <div id="chessByoyomiDetail" class="hidden bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 space-y-2">
               <div class="flex items-center justify-between gap-1">
                 <span class="text-[11px] text-slate-300 font-bold">移行後の秒読み:</span>
@@ -205,11 +248,15 @@
         </div>
       </div>
 
+      <!-- 3. プレイ人数選択（2〜10人） -->
       <div class="space-y-2">
         <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">プレイ人数（2〜10人）</p>
-        <div id="playerCountGrid" class="grid grid-cols-5 gap-1.5"></div>
+        <div id="playerCountGrid" class="grid grid-cols-5 gap-1.5">
+          <!-- JSで2〜10ボタン生成 -->
+        </div>
       </div>
 
+      <!-- リセット操作 -->
       <div class="pt-2 border-t border-slate-800">
         <button id="resetScoresBtn" class="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-bold text-sm transition">
           全ラウンド・得点・タイマーを初期化
@@ -218,6 +265,7 @@
     </div>
   </div>
 
+  <!-- ラウンド別スコア履歴モーダル -->
   <div id="historyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[85dvh] flex flex-col">
       <div class="flex justify-between items-center shrink-0">
@@ -227,6 +275,7 @@
         </div>
         <button id="closeHistoryBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
       </div>
+
       <div class="overflow-auto border border-slate-800 rounded-xl flex-1">
         <table class="w-full text-sm text-left border-collapse">
           <thead id="historyTableHead" class="text-xs bg-slate-800 text-slate-300 sticky top-0 z-10"></thead>
@@ -237,6 +286,7 @@
     </div>
   </div>
 
+  <!-- テンキー得点入力モーダル -->
   <div id="keypadModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div id="keypadCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-4 space-y-3 shadow-2xl transition-transform">
       <div class="flex justify-between items-center">
@@ -246,12 +296,14 @@
         </div>
         <button id="closeKpBtn" class="text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
       </div>
+
       <div class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 flex justify-between items-center">
         <span class="text-xs text-slate-500">加算値</span>
         <div class="text-3xl font-mono font-black">
           <span id="kpSign" class="text-emerald-400">+</span><span id="kpDigits">0</span>
         </div>
       </div>
+
       <div class="grid grid-cols-3 gap-1.5 text-xl font-bold">
         <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="7">7</button>
         <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="8">8</button>
@@ -266,11 +318,17 @@
         <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="0">0</button>
         <button type="button" id="kpClear" class="bg-slate-800 hover:bg-slate-700 text-rose-400 py-3 rounded-xl text-base">C</button>
       </div>
-      <button id="kpConfirm" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg transition">決定</button>
+
+      <button id="kpConfirm" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg transition">
+        決定
+      </button>
     </div>
   </div>
 
   <script>
+    // ==========================================
+    // 1. 効果音（Web Audio API）
+    // ==========================================
     function playBeep(freq = 880, duration = 0.25) {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -287,7 +345,10 @@
       } catch (e) {}
     }
 
-    const STORAGE_KEY = 'tabletop_scoreboard_orient_v2';
+    // ==========================================
+    // 2. カラーテーマ定義 & 状態管理
+    // ==========================================
+    const STORAGE_KEY = 'tabletop_scoreboard_colors_v1';
 
     const COLOR_THEMES = [
       { label: 'ブルー',     bg: '#172554', accent: '#60a5fa' },
@@ -307,7 +368,6 @@
     const DEFAULT_STATE = {
       playerCount: 4,
       currentRound: 1,
-      orientationMode: 'table',
       timerMode: 'none',
       sharedDuration: 180,
       sharedRemaining: 180,
@@ -333,8 +393,10 @@
     let kpIsNegative = false;
     let isSwapMode = false;
     let selectedSwapSeatIdx = null;
+
     let editingSeatIdx = null;
     let selectedEditTheme = COLOR_THEMES[0];
+
     let isSharedRunning = false;
     let isTurnTimerRunning = false;
 
@@ -389,24 +451,9 @@
       return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
 
-    document.querySelectorAll('.orient-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.orientationMode = btn.dataset.orient;
-        saveState();
-        render();
-      });
-    });
-
-    function updateOrientButtonsUI() {
-      const mode = state.orientationMode || 'table';
-      document.querySelectorAll('.orient-btn').forEach(btn => {
-        const isCurrent = btn.dataset.orient === mode;
-        btn.className = isCurrent
-          ? 'orient-btn py-2 px-2 rounded-lg border-2 border-indigo-400 bg-indigo-600/30 text-white transition flex flex-col items-center gap-0.5'
-          : 'orient-btn py-2 px-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800 transition flex flex-col items-center gap-0.5';
-      });
-    }
-
+    // ==========================================
+    // 3. プレイヤー名＆カラー変更モーダル制御（常に正位置で表示）
+    // ==========================================
     const playerEditModal = document.getElementById('playerEditModal');
     const editPlayerNameInput = document.getElementById('editPlayerNameInput');
     const colorPaletteGrid = document.getElementById('colorPaletteGrid');
@@ -416,6 +463,7 @@
       const p = state.players[seatIdx];
       editPlayerNameInput.value = p.name;
       selectedEditTheme = COLOR_THEMES.find(t => t.accent === p.accent) || { bg: p.bg, accent: p.accent };
+
       renderColorPaletteButtons();
       playerEditModal.classList.remove('hidden');
     }
@@ -468,6 +516,9 @@
       if (e.target === playerEditModal) closePlayerEditModal();
     });
 
+    // ==========================================
+    // 4. 1秒ごとのタイマーカウントダウンエンジン
+    // ==========================================
     setInterval(() => {
       let needsRender = false;
 
@@ -554,6 +605,9 @@
       render();
     }
 
+    // ==========================================
+    // 5. 設定モーダル初期化（人数＆タイマー）
+    // ==========================================
     const playerCountGrid = document.getElementById('playerCountGrid');
     for (let n = 2; n <= 10; n++) {
       const btn = document.createElement('button');
@@ -705,6 +759,9 @@
       }
     }
 
+    // ==========================================
+    // 6. 中央タイマーコントロールボタンイベント
+    // ==========================================
     document.getElementById('sharedTimerPlayBtn').addEventListener('click', () => {
       if (state.sharedRemaining <= 0) state.sharedRemaining = state.sharedDuration;
       isSharedRunning = !isSharedRunning;
@@ -734,6 +791,9 @@
       render();
     });
 
+    // ==========================================
+    // 7. レイアウト描画 (2人〜10人)
+    // ==========================================
     const boardContainer = document.getElementById('boardContainer');
     const centerRoundBadge = document.getElementById('centerRoundBadge');
     const modalRoundNum = document.getElementById('modalRoundNum');
@@ -745,11 +805,9 @@
       ensureRoundArrayLength(state.currentRound);
       boardContainer.innerHTML = '';
       const count = state.playerCount;
-      const isStandMode = state.orientationMode === 'stand';
 
       centerRoundBadge.textContent = state.currentRound;
       modalRoundNum.textContent = state.currentRound;
-      updateOrientButtonsUI();
 
       if (isSwapMode) {
         centerHub.classList.add('hidden');
@@ -787,74 +845,16 @@
           : 'py-2 rounded-lg font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs transition';
       });
 
-      if (isStandMode) {
-        renderStandFrontLayout(count);
-        return;
-      }
-
       if (count === 2) {
-        renderTwoPlayersTable();
+        renderTwoPlayers();
       } else if (count === 3) {
-        renderThreePlayersTable();
+        renderThreePlayers();
       } else {
         renderTableGridPlayers(count);
       }
     }
 
-    function renderStandFrontLayout(count) {
-      if (count === 2) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
-        wrapper.appendChild(createRectZone(0, 0, 'normal'));
-        wrapper.appendChild(createRectZone(1, 0, 'normal'));
-        boardContainer.appendChild(wrapper);
-        return;
-      }
-
-      if (count === 3) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
-
-        const topRow = document.createElement('div');
-        topRow.className = 'w-full h-1/2';
-        topRow.appendChild(createRectZone(0, 0, 'normal'));
-
-        const bottomRow = document.createElement('div');
-        bottomRow.className = 'w-full h-1/2 grid grid-cols-2 divide-x divide-slate-600';
-        bottomRow.appendChild(createRectZone(1, 0, 'compact'));
-        bottomRow.appendChild(createRectZone(2, 0, 'compact'));
-
-        wrapper.append(topRow, bottomRow);
-        boardContainer.appendChild(wrapper);
-        return;
-      }
-
-      const topCount = Math.ceil(count / 2);
-      const bottomCount = Math.floor(count / 2);
-      const sizeMode = count <= 4 ? 'normal' : count <= 6 ? 'compact' : 'mini';
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
-
-      const topRow = document.createElement('div');
-      topRow.className = 'w-full h-1/2 grid divide-x divide-slate-600';
-      topRow.style.gridTemplateColumns = `repeat(${topCount}, minmax(0, 1fr))`;
-      for (let i = 0; i < topCount; i++) {
-        topRow.appendChild(createRectZone(i, 0, sizeMode));
-      }
-
-      const bottomRow = document.createElement('div');
-      bottomRow.className = 'w-full h-1/2 grid divide-x divide-slate-600';
-      bottomRow.style.gridTemplateColumns = `repeat(${bottomCount}, minmax(0, 1fr))`;
-      for (let i = topCount; i < count; i++) {
-        bottomRow.appendChild(createRectZone(i, 0, sizeMode));
-      }
-
-      wrapper.append(topRow, bottomRow);
-      boardContainer.appendChild(wrapper);
-    }
-
-    function renderTwoPlayersTable() {
+    function renderTwoPlayers() {
       const wrapper = document.createElement('div');
       wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
       wrapper.appendChild(createRectZone(0, 180, 'normal'));
@@ -862,7 +862,7 @@
       boardContainer.appendChild(wrapper);
     }
 
-    function renderThreePlayersTable() {
+    function renderThreePlayers() {
       const wrapper = document.createElement('div');
       wrapper.className = 'relative w-full h-full';
 
@@ -959,6 +959,9 @@
       return zone;
     }
 
+    // ==========================================
+    // 8. 各プレイヤー内のUIパーツ（スマホ画面に最適化された高さ・バランス）
+    // ==========================================
     function buildInnerUI(seatIdx, rotateDeg, sizeMode = 'normal') {
       const p = state.players[seatIdx];
       const totalScore = getTotalScore(p);
@@ -1012,6 +1015,7 @@
         </div>
       ` : '';
 
+      // スマホの縦幅でも上下にはみ出さないバランスの楕円サイズ
       let ovalClass = isIndividualTimer
         ? 'w-20 h-28 sm:w-28 sm:h-36 text-3xl sm:text-5xl'
         : 'w-24 h-32 sm:w-32 sm:h-44 text-4xl sm:text-6xl';
@@ -1149,6 +1153,9 @@
       });
     }
 
+    // ==========================================
+    // 9. 配置変更・ラウンド・履歴・テンキー各種制御
+    // ==========================================
     function handleSeatSwapTap(seatIdx) {
       if (selectedSwapSeatIdx === null) {
         selectedSwapSeatIdx = seatIdx;
@@ -1274,6 +1281,7 @@
       });
     }
 
+    // テンキー
     const keypadModal = document.getElementById('keypadModal');
     const keypadCard = document.getElementById('keypadCard');
     function openKeypadModal(seatIdx, rotateDeg) {
@@ -1329,10 +1337,10 @@
       if (e.target === keypadModal) closeKeypadModal();
     });
 
+    // 中央設定モーダル
     const settingsModal = document.getElementById('settingsModal');
     document.getElementById('centerMenuBtn').addEventListener('click', () => {
       updateTimerSettingsUI();
-      updateOrientButtonsUI();
       settingsModal.classList.remove('hidden');
     });
     document.getElementById('closeSettingsBtn').addEventListener('click', () => {
@@ -1367,6 +1375,7 @@
       }[m]));
     }
 
+    // 初回描画
     updateTimerSettingsUI();
     render();
   </script>
