@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>テーブルトップ得点ボード（配置変更・ラウンド制・2〜10人対応）</title>
+  <title>テーブルトップ得点＆タイマーボード</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     * {
@@ -20,18 +20,39 @@
       background-color: #090d16;
     }
     .player-zone {
-      transition: filter 0.15s ease, transform 0.15s ease;
+      transition: filter 0.15s ease, box-shadow 0.2s ease, background-color 0.25s ease;
     }
     .player-zone:active {
-      filter: brightness(1.15);
+      filter: brightness(1.12);
     }
     @keyframes pulseBorder {
-      0%, 100% { box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.8); }
+      0%, 100% { box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.85); }
       50% { box-shadow: inset 0 0 0 3px rgba(250, 204, 21, 0.25); }
     }
     .swap-target-zone {
       animation: pulseBorder 1.4s infinite;
       cursor: pointer;
+    }
+    @keyframes activeTurnGlow {
+      0%, 100% { box-shadow: inset 0 0 0 4px rgba(52, 211, 153, 0.95); }
+      50% { box-shadow: inset 0 0 0 4px rgba(52, 211, 153, 0.35); }
+    }
+    .active-turn-zone {
+      animation: activeTurnGlow 1.5s infinite;
+    }
+    @keyframes activeByoyomiGlow {
+      0%, 100% { box-shadow: inset 0 0 0 4px rgba(251, 146, 60, 0.95); }
+      50% { box-shadow: inset 0 0 0 4px rgba(251, 146, 60, 0.35); }
+    }
+    .active-byoyomi-zone {
+      animation: activeByoyomiGlow 1.2s infinite;
+    }
+    @keyframes timeUpFlash {
+      0%, 100% { background-color: rgba(225, 29, 72, 0.45); }
+      50% { background-color: rgba(15, 23, 42, 0.9); }
+    }
+    .timeup-flash {
+      animation: timeUpFlash 0.6s infinite;
     }
   </style>
 </head>
@@ -42,15 +63,35 @@
     <!-- JSで2〜10人のレイアウトを動的生成 -->
   </div>
 
-  <!-- 中央のフローティング設定＆ラウンド表示ボタン（通常モード時） -->
-  <button
-    id="centerMenuBtn"
-    class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-14 h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
-    title="ラウンド進行・設定・配置変更"
-  >
-    <span class="text-[10px] font-bold text-indigo-300 leading-none">ROUND</span>
-    <span id="centerRoundBadge" class="text-base font-black leading-tight">1</span>
-  </button>
+  <!-- 中央のフローティングコントロール群 -->
+  <div id="centerHub" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-1.5">
+    <!-- 共有タイマー表示ピル -->
+    <div id="sharedTimerPill" class="hidden bg-slate-900/95 border-2 border-cyan-400 rounded-full px-3.5 py-1 shadow-2xl flex items-center gap-2">
+      <span class="text-[10px] font-bold text-cyan-300">共有</span>
+      <span id="sharedTimerText" class="font-mono font-black text-base text-white">03:00</span>
+      <button id="sharedTimerPlayBtn" type="button" class="w-6 h-6 rounded-full bg-cyan-500 text-slate-950 font-black text-xs flex items-center justify-center">▶</button>
+      <button id="sharedTimerResetBtn" type="button" class="text-xs text-slate-400 hover:text-white px-1">↺</button>
+    </div>
+
+    <!-- 中央ラウンド＆設定ボタン -->
+    <button
+      id="centerMenuBtn"
+      class="w-14 h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
+      title="ラウンド・タイマー・配置設定"
+    >
+      <span class="text-[10px] font-bold text-indigo-300 leading-none">ROUND</span>
+      <span id="centerRoundBadge" class="text-base font-black leading-tight">1</span>
+    </button>
+
+    <!-- 個別タイマー用の一時停止/再開ボタン -->
+    <div id="turnTimerControlPill" class="hidden bg-slate-900/95 border border-emerald-400/70 rounded-full px-3 py-1 shadow-xl flex items-center gap-2">
+      <button id="turnTimerToggleBtn" type="button" class="text-xs font-bold text-emerald-300 flex items-center gap-1">
+        <span id="turnTimerToggleIcon">▶</span> <span id="turnTimerToggleLabel">開始</span>
+      </button>
+      <span class="text-slate-600">|</span>
+      <button id="turnTimerResetAllBtn" type="button" class="text-[11px] text-slate-300 hover:text-white">リセット</button>
+    </div>
+  </div>
 
   <!-- 配置変更モード中のフローティング操作バー -->
   <div
@@ -65,7 +106,6 @@
         id="rotateAllSeatsBtn"
         type="button"
         class="flex-1 py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-200 transition"
-        title="全員の席を時計回りに1つずらす"
       >
         ↻ 全体回転
       </button>
@@ -79,15 +119,53 @@
     </div>
   </div>
 
-  <!-- 中央設定＆ラウンド管理モーダル -->
+  <!-- プレイヤー名＆カラー変更モーダル（その人の座る向きに回転して開く） -->
+  <div id="playerEditModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div id="playerEditCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl transition-transform">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-base text-slate-200">プレイヤー設定</h3>
+        <button id="closePlayerEditBtn" type="button" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+
+      <!-- 名前入力 -->
+      <div class="space-y-1.5">
+        <label for="editPlayerNameInput" class="text-xs font-bold text-slate-400">名前（最大8文字）</label>
+        <input
+          type="text"
+          id="editPlayerNameInput"
+          maxlength="8"
+          class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-base font-bold text-white focus:outline-none focus:border-indigo-400"
+          placeholder="プレイヤー名"
+        />
+      </div>
+
+      <!-- カラーパレット選択 -->
+      <div class="space-y-2">
+        <p class="text-xs font-bold text-slate-400">テーマカラー</p>
+        <div id="colorPaletteGrid" class="grid grid-cols-5 gap-2.5">
+          <!-- JSで10色の丸ボタンを生成 -->
+        </div>
+      </div>
+
+      <button
+        id="savePlayerEditBtn"
+        type="button"
+        class="w-full bg-indigo-600 hover:bg-indigo-500 py-2.5 rounded-xl font-bold text-white shadow-lg transition"
+      >
+        変更を保存
+      </button>
+    </div>
+  </div>
+
+  <!-- 中央設定モーダル -->
   <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center">
-        <h2 class="font-bold text-lg">ラウンド・テーブル設定</h2>
+        <h2 class="font-bold text-lg">ゲーム・タイマー設定</h2>
         <button id="closeSettingsBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
       </div>
 
-      <!-- ラウンド操作セクション -->
+      <!-- 1. ラウンド＆座席管理 -->
       <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
         <div class="flex justify-between items-center">
           <div>
@@ -99,7 +177,7 @@
               ← 戻る
             </button>
             <button id="nextRoundBtn" type="button" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow transition">
-              次のラウンドへ →
+              次ラウンド →
             </button>
           </div>
         </div>
@@ -114,18 +192,73 @@
         </div>
       </div>
 
-      <!-- プレイ人数選択（2〜10人） -->
+      <!-- 2. タイマーモード設定 -->
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 space-y-3">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">⏱ タイマーモード</p>
+        <div class="grid grid-cols-2 gap-1.5 text-xs font-bold">
+          <button type="button" data-tmode="none" class="tmode-btn py-2 px-2 rounded-lg border transition">オフ</button>
+          <button type="button" data-tmode="shared" class="tmode-btn py-2 px-2 rounded-lg border transition">共有タイマー</button>
+          <button type="button" data-tmode="chess" class="tmode-btn py-2 px-2 rounded-lg border transition">持ち時間制</button>
+          <button type="button" data-tmode="shot" class="tmode-btn py-2 px-2 rounded-lg border transition">1手秒読み制</button>
+        </div>
+
+        <!-- モード別の秒数設定パネル -->
+        <div id="timerConfigPanel" class="hidden pt-2 border-t border-slate-800 space-y-2.5">
+          <p id="timerModeDesc" class="text-[11px] text-slate-400 leading-relaxed"></p>
+          <div class="flex items-center justify-between gap-2">
+            <label id="timerDurationLabel" class="text-xs font-bold text-slate-300">設定時間</label>
+            <div class="flex items-center gap-1">
+              <button type="button" data-preset="30" class="preset-sec-btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono">30秒</button>
+              <button type="button" data-preset="60" class="preset-sec-btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono">1分</button>
+              <button type="button" data-preset="180" class="preset-sec-btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono">3分</button>
+              <button type="button" data-preset="600" class="preset-sec-btn px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs font-mono">10分</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-end gap-2">
+            <span class="text-xs text-slate-400">カスタム(秒):</span>
+            <input type="number" id="customTimerSecInput" min="5" max="7200" step="5" class="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-right font-mono text-sm" />
+            <button type="button" id="applyTimerConfigBtn" class="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white">適用</button>
+          </div>
+
+          <!-- 持ち時間制専用：切れ負け後の1手秒読み移行オプション -->
+          <div id="chessByoyomiOptionBox" class="hidden pt-2.5 border-t border-slate-800 space-y-2">
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="text-xs font-bold text-amber-300">持ち時間切れ後 ➔ 1手秒読みに移行</span>
+              <input type="checkbox" id="chessFallbackToggle" class="w-4 h-4 accent-amber-400 rounded" />
+            </label>
+
+            <div id="chessByoyomiDetail" class="hidden bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 space-y-2">
+              <div class="flex items-center justify-between gap-1">
+                <span class="text-[11px] text-slate-300 font-bold">移行後の秒読み:</span>
+                <div class="flex items-center gap-1">
+                  <button type="button" data-bpreset="10" class="byoyomi-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono">10秒</button>
+                  <button type="button" data-bpreset="20" class="byoyomi-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono">20秒</button>
+                  <button type="button" data-bpreset="30" class="byoyomi-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono">30秒</button>
+                  <button type="button" data-bpreset="60" class="byoyomi-preset-btn px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono">60秒</button>
+                </div>
+              </div>
+              <div class="flex items-center justify-end gap-2">
+                <span class="text-[11px] text-slate-400">秒読み(秒):</span>
+                <input type="number" id="customByoyomiSecInput" min="3" max="600" step="1" class="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-right font-mono text-xs" />
+                <button type="button" id="applyByoyomiSecBtn" class="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-black">設定</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. プレイ人数選択（2〜10人） -->
       <div class="space-y-2">
-        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">プレイ人数（記録を保持して変更）</p>
-        <div id="playerCountGrid" class="grid grid-cols-3 gap-2">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">プレイ人数（2〜10人）</p>
+        <div id="playerCountGrid" class="grid grid-cols-5 gap-1.5">
           <!-- JSで2〜10ボタン生成 -->
         </div>
       </div>
 
       <!-- リセット操作 -->
-      <div class="pt-2 border-t border-slate-800 space-y-2">
+      <div class="pt-2 border-t border-slate-800">
         <button id="resetScoresBtn" class="w-full py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 font-bold text-sm transition">
-          全ラウンド・得点をリセット（R1へ）
+          全ラウンド・得点・タイマーを初期化
         </button>
       </div>
     </div>
@@ -144,21 +277,15 @@
 
       <div class="overflow-auto border border-slate-800 rounded-xl flex-1">
         <table class="w-full text-sm text-left border-collapse">
-          <thead id="historyTableHead" class="text-xs bg-slate-800 text-slate-300 sticky top-0 z-10">
-            <!-- JS生成 -->
-          </thead>
-          <tbody id="historyTableBody" class="divide-y divide-slate-800 bg-slate-950">
-            <!-- JS生成 -->
-          </tbody>
-          <tfoot id="historyTableFoot" class="text-xs font-bold bg-slate-900 text-white border-t-2 border-slate-700 sticky bottom-0">
-            <!-- JS生成 -->
-          </tfoot>
+          <thead id="historyTableHead" class="text-xs bg-slate-800 text-slate-300 sticky top-0 z-10"></thead>
+          <tbody id="historyTableBody" class="divide-y divide-slate-800 bg-slate-950"></tbody>
+          <tfoot id="historyTableFoot" class="text-xs font-bold bg-slate-900 text-white border-t-2 border-slate-700 sticky bottom-0"></tfoot>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- テンキー得点入力モーダル（その人の座る向きに回転表示） -->
+  <!-- テンキー得点入力モーダル -->
   <div id="keypadModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div id="keypadCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-4 space-y-3 shadow-2xl transition-transform">
       <div class="flex justify-between items-center">
@@ -169,7 +296,6 @@
         <button id="closeKpBtn" class="text-slate-400 hover:text-white text-2xl leading-none p-1">&times;</button>
       </div>
 
-      <!-- 数値ディスプレイ -->
       <div class="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 flex justify-between items-center">
         <span class="text-xs text-slate-500">加算値</span>
         <div class="text-3xl font-mono font-black">
@@ -177,7 +303,6 @@
         </div>
       </div>
 
-      <!-- テンキー -->
       <div class="grid grid-cols-3 gap-1.5 text-xl font-bold">
         <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="7">7</button>
         <button type="button" class="kp-num bg-slate-800 hover:bg-slate-700 py-3 rounded-xl" data-n="8">8</button>
@@ -201,33 +326,64 @@
 
   <script>
     // ==========================================
-    // 1. 状態管理 & データ永続化（座席順を独立保持）
+    // 1. 効果音（Web Audio API）
     // ==========================================
-    const STORAGE_KEY = 'tabletop_scoreboard_swap_v1';
+    function playBeep(freq = 880, duration = 0.25) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
 
-    const PLAYER_PALETTE = [
-      { name: 'A', bg: '#1e293b', accent: '#38bdf8' },
-      { name: 'B', bg: '#172554', accent: '#60a5fa' },
-      { name: 'C', bg: '#31102f', accent: '#f472b6' },
-      { name: 'D', bg: '#064e3b', accent: '#34d399' },
-      { name: 'E', bg: '#3b1d0e', accent: '#fb923c' },
-      { name: 'F', bg: '#2e1065', accent: '#a78bfa' },
-      { name: 'G', bg: '#3f2e05', accent: '#facc15' },
-      { name: 'H', bg: '#083344', accent: '#22d3ee' },
-      { name: 'I', bg: '#3f121d', accent: '#fb7185' },
-      { name: 'J', bg: '#1a2e05', accent: '#a3e635' }
+    // ==========================================
+    // 2. カラーテーマ定義 & 状態管理
+    // ==========================================
+    const STORAGE_KEY = 'tabletop_scoreboard_colors_v1';
+
+    // ボードゲームのコマ色に合わせやすい10種のテーマカラー
+    const COLOR_THEMES = [
+      { label: 'ブルー',     bg: '#172554', accent: '#60a5fa' },
+      { label: 'レッド',     bg: '#450a0a', accent: '#f87171' },
+      { label: 'グリーン',   bg: '#064e3b', accent: '#34d399' },
+      { label: 'イエロー',   bg: '#422006', accent: '#facc15' },
+      { label: 'パープル',   bg: '#2e1065', accent: '#c084fc' },
+      { label: 'オレンジ',   bg: '#431407', accent: '#fb923c' },
+      { label: 'ピンク',     bg: '#500724', accent: '#f472b6' },
+      { label: 'シアン',     bg: '#083344', accent: '#22d3ee' },
+      { label: 'ライム',     bg: '#1a2e05', accent: '#a3e635' },
+      { label: 'ホワイト',   bg: '#1e293b', accent: '#f8fafc' }
     ];
+
+    const DEFAULT_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
     const DEFAULT_STATE = {
       playerCount: 4,
       currentRound: 1,
-      // players配列の並び順そのものが「座席0〜9の配置」を表す
-      players: PLAYER_PALETTE.map((item, idx) => ({
+      timerMode: 'none',
+      sharedDuration: 180,
+      sharedRemaining: 180,
+      chessDuration: 600,
+      chessFallbackToByoyomi: true,
+      chessByoyomiDuration: 30,
+      shotDuration: 30,
+      activeTurnSeatIdx: 0,
+      players: DEFAULT_NAMES.map((name, idx) => ({
         id: 'player_' + idx,
-        name: item.name,
+        name,
         roundScores: [0],
-        bg: item.bg,
-        accent: item.accent
+        timeRemaining: 600,
+        inByoyomi: false,
+        bg: COLOR_THEMES[idx % COLOR_THEMES.length].bg,
+        accent: COLOR_THEMES[idx % COLOR_THEMES.length].accent
       }))
     };
 
@@ -235,18 +391,30 @@
     let activeSeatIdx = null;
     let kpDigitsStr = '0';
     let kpIsNegative = false;
-
-    // 配置変更モード用の状態
     let isSwapMode = false;
     let selectedSwapSeatIdx = null;
+
+    // プレイヤー編集モーダル用の状態
+    let editingSeatIdx = null;
+    let selectedEditTheme = COLOR_THEMES[0];
+
+    let isSharedRunning = false;
+    let isTurnTimerRunning = false;
 
     function loadState() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.players && parsed.players.length === 10 && typeof parsed.currentRound === 'number') {
-            return parsed;
+          if (parsed.players && parsed.players.length === 10) {
+            return {
+              ...DEFAULT_STATE,
+              ...parsed,
+              players: parsed.players.map((p, i) => ({
+                ...DEFAULT_STATE.players[i],
+                ...p
+              }))
+            };
           }
         }
       } catch (e) {}
@@ -274,8 +442,175 @@
       return player.roundScores[state.currentRound - 1] || 0;
     }
 
+    function formatTime(sec, isByoyomi = false) {
+      const s = Math.max(0, Math.ceil(sec));
+      const mins = Math.floor(s / 60);
+      const secs = s % 60;
+      if ((state.timerMode === 'shot' || isByoyomi) && s < 60) {
+        return `${secs}s`;
+      }
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
     // ==========================================
-    // 2. 設定モーダルの2〜10人ボタン初期化
+    // 3. プレイヤー名＆カラー変更モーダル制御
+    // ==========================================
+    const playerEditModal = document.getElementById('playerEditModal');
+    const playerEditCard = document.getElementById('playerEditCard');
+    const editPlayerNameInput = document.getElementById('editPlayerNameInput');
+    const colorPaletteGrid = document.getElementById('colorPaletteGrid');
+
+    function openPlayerEditModal(seatIdx, rotateDeg) {
+      editingSeatIdx = seatIdx;
+      const p = state.players[seatIdx];
+      editPlayerNameInput.value = p.name;
+      selectedEditTheme = COLOR_THEMES.find(t => t.accent === p.accent) || { bg: p.bg, accent: p.accent };
+
+      // プレイヤーが座っている向きに合わせてカードを回転
+      playerEditCard.style.transform = `rotate(${rotateDeg}deg)`;
+      renderColorPaletteButtons();
+      playerEditModal.classList.remove('hidden');
+    }
+
+    function closePlayerEditModal() {
+      playerEditModal.classList.add('hidden');
+      editingSeatIdx = null;
+    }
+
+    function renderColorPaletteButtons() {
+      colorPaletteGrid.innerHTML = '';
+      COLOR_THEMES.forEach(theme => {
+        const isSelected = theme.accent === selectedEditTheme.accent;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = theme.label;
+        btn.className = `w-11 h-11 rounded-full flex items-center justify-center transition ${
+          isSelected ? 'ring-4 ring-white scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'
+        }`;
+        btn.style.backgroundColor = theme.bg;
+        btn.style.border = `3px solid ${theme.accent}`;
+        btn.innerHTML = isSelected
+          ? `<span class="text-sm font-black" style="color:${theme.accent}">✓</span>`
+          : `<span class="w-3 h-3 rounded-full" style="background-color:${theme.accent}"></span>`;
+
+        btn.addEventListener('click', () => {
+          selectedEditTheme = theme;
+          renderColorPaletteButtons();
+        });
+        colorPaletteGrid.appendChild(btn);
+      });
+    }
+
+    document.getElementById('savePlayerEditBtn').addEventListener('click', () => {
+      if (editingSeatIdx !== null) {
+        const newName = editPlayerNameInput.value.trim();
+        if (newName !== '') {
+          state.players[editingSeatIdx].name = newName.slice(0, 8);
+        }
+        state.players[editingSeatIdx].bg = selectedEditTheme.bg;
+        state.players[editingSeatIdx].accent = selectedEditTheme.accent;
+        saveState();
+        render();
+      }
+      closePlayerEditModal();
+    });
+
+    document.getElementById('closePlayerEditBtn').addEventListener('click', closePlayerEditModal);
+    playerEditModal.addEventListener('click', (e) => {
+      if (e.target === playerEditModal) closePlayerEditModal();
+    });
+
+    // ==========================================
+    // 4. 1秒ごとのタイマーカウントダウンエンジン
+    // ==========================================
+    setInterval(() => {
+      let needsRender = false;
+
+      if (state.timerMode === 'shared' && isSharedRunning) {
+        if (state.sharedRemaining > 0) {
+          state.sharedRemaining -= 1;
+          if (state.sharedRemaining === 0) {
+            isSharedRunning = false;
+            playBeep(520, 0.6);
+          }
+          updateTimerTextsOnly();
+          saveState();
+        }
+      }
+
+      if ((state.timerMode === 'chess' || state.timerMode === 'shot') && isTurnTimerRunning && !isSwapMode) {
+        const turnIdx = state.activeTurnSeatIdx % state.playerCount;
+        const activePlayer = state.players[turnIdx];
+
+        if (activePlayer && activePlayer.timeRemaining > 0) {
+          activePlayer.timeRemaining -= 1;
+
+          if ((state.timerMode === 'shot' || activePlayer.inByoyomi) && activePlayer.timeRemaining <= 5 && activePlayer.timeRemaining > 0) {
+            playBeep(660, 0.08);
+          }
+
+          if (activePlayer.timeRemaining === 0) {
+            if (state.timerMode === 'chess' && state.chessFallbackToByoyomi && !activePlayer.inByoyomi) {
+              activePlayer.inByoyomi = true;
+              activePlayer.timeRemaining = state.chessByoyomiDuration;
+              playBeep(740, 0.35);
+              needsRender = true;
+            } else {
+              isTurnTimerRunning = false;
+              playBeep(440, 0.7);
+              needsRender = true;
+            }
+          }
+
+          updateTimerTextsOnly();
+          saveState();
+        }
+      }
+
+      if (needsRender) render();
+    }, 1000);
+
+    function updateTimerTextsOnly() {
+      const sharedEl = document.getElementById('sharedTimerText');
+      if (sharedEl) {
+        sharedEl.textContent = formatTime(state.sharedRemaining);
+        sharedEl.className = state.sharedRemaining <= 10
+          ? 'font-mono font-black text-base text-rose-400 animate-pulse'
+          : 'font-mono font-black text-base text-white';
+      }
+
+      document.querySelectorAll('[data-timer-seat]').forEach(el => {
+        const idx = Number(el.dataset.timerSeat);
+        const p = state.players[idx];
+        el.textContent = formatTime(p.timeRemaining, p.inByoyomi);
+        if (p.timeRemaining <= 5 && (state.timerMode === 'shot' || p.inByoyomi)) {
+          el.classList.add('text-rose-400');
+        } else {
+          el.classList.remove('text-rose-400');
+        }
+      });
+    }
+
+    function advanceTurn(fromSeatIdx) {
+      playBeep(980, 0.07);
+      const count = state.playerCount;
+      const nextIdx = (fromSeatIdx + 1) % count;
+      state.activeTurnSeatIdx = nextIdx;
+
+      const nextPlayer = state.players[nextIdx];
+      if (state.timerMode === 'shot') {
+        nextPlayer.timeRemaining = state.shotDuration;
+      } else if (state.timerMode === 'chess' && nextPlayer.inByoyomi) {
+        nextPlayer.timeRemaining = state.chessByoyomiDuration;
+      }
+
+      isTurnTimerRunning = true;
+      saveState();
+      render();
+    }
+
+    // ==========================================
+    // 5. 設定モーダル初期化（人数＆タイマー）
     // ==========================================
     const playerCountGrid = document.getElementById('playerCountGrid');
     for (let n = 2; n <= 10; n++) {
@@ -284,8 +619,8 @@
       btn.dataset.count = n;
       btn.textContent = `${n}人`;
       btn.addEventListener('click', () => {
-        // 記録はそのまま保持し、表示する座席数だけ変更
         state.playerCount = n;
+        if (state.activeTurnSeatIdx >= n) state.activeTurnSeatIdx = 0;
         saveState();
         render();
         settingsModal.classList.add('hidden');
@@ -293,13 +628,180 @@
       playerCountGrid.appendChild(btn);
     }
 
+    document.querySelectorAll('.tmode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.tmode;
+        state.timerMode = mode;
+        isSharedRunning = false;
+        isTurnTimerRunning = false;
+
+        if (mode === 'shared') {
+          state.sharedRemaining = state.sharedDuration;
+        } else if (mode === 'chess') {
+          state.players.forEach(p => {
+            p.timeRemaining = state.chessDuration;
+            p.inByoyomi = false;
+          });
+        } else if (mode === 'shot') {
+          state.players.forEach(p => {
+            p.timeRemaining = state.shotDuration;
+            p.inByoyomi = false;
+          });
+        }
+
+        saveState();
+        updateTimerSettingsUI();
+        render();
+      });
+    });
+
+    document.querySelectorAll('.preset-sec-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sec = Number(btn.dataset.preset);
+        document.getElementById('customTimerSecInput').value = sec;
+        applyTimerSeconds(sec);
+      });
+    });
+
+    document.getElementById('applyTimerConfigBtn').addEventListener('click', () => {
+      const val = parseInt(document.getElementById('customTimerSecInput').value, 10);
+      if (val && val >= 5) {
+        applyTimerSeconds(val);
+      }
+    });
+
+    function applyTimerSeconds(sec) {
+      isSharedRunning = false;
+      isTurnTimerRunning = false;
+      if (state.timerMode === 'shared') {
+        state.sharedDuration = sec;
+        state.sharedRemaining = sec;
+      } else if (state.timerMode === 'chess') {
+        state.chessDuration = sec;
+        state.players.forEach(p => {
+          p.timeRemaining = sec;
+          p.inByoyomi = false;
+        });
+      } else if (state.timerMode === 'shot') {
+        state.shotDuration = sec;
+        state.players.forEach(p => {
+          p.timeRemaining = sec;
+          p.inByoyomi = false;
+        });
+      }
+      saveState();
+      render();
+    }
+
+    const chessFallbackToggle = document.getElementById('chessFallbackToggle');
+    chessFallbackToggle.addEventListener('change', (e) => {
+      state.chessFallbackToByoyomi = e.target.checked;
+      saveState();
+      updateTimerSettingsUI();
+    });
+
+    document.querySelectorAll('.byoyomi-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sec = Number(btn.dataset.bpreset);
+        document.getElementById('customByoyomiSecInput').value = sec;
+        state.chessByoyomiDuration = sec;
+        saveState();
+      });
+    });
+
+    document.getElementById('applyByoyomiSecBtn').addEventListener('click', () => {
+      const val = parseInt(document.getElementById('customByoyomiSecInput').value, 10);
+      if (val && val >= 3) {
+        state.chessByoyomiDuration = val;
+        state.players.forEach(p => {
+          if (p.inByoyomi) p.timeRemaining = val;
+        });
+        saveState();
+        render();
+      }
+    });
+
+    function updateTimerSettingsUI() {
+      const mode = state.timerMode;
+      document.querySelectorAll('.tmode-btn').forEach(btn => {
+        const active = btn.dataset.tmode === mode;
+        btn.className = active
+          ? 'tmode-btn py-2 px-2 rounded-lg border-2 border-emerald-400 bg-emerald-600/30 text-emerald-200 transition'
+          : 'tmode-btn py-2 px-2 rounded-lg border border-slate-700 bg-slate-900 text-slate-400 hover:bg-slate-800 transition';
+      });
+
+      const panel = document.getElementById('timerConfigPanel');
+      const desc = document.getElementById('timerModeDesc');
+      const input = document.getElementById('customTimerSecInput');
+      const byoyomiBox = document.getElementById('chessByoyomiOptionBox');
+      const byoyomiDetail = document.getElementById('chessByoyomiDetail');
+
+      if (mode === 'none') {
+        panel.classList.add('hidden');
+      } else {
+        panel.classList.remove('hidden');
+        byoyomiBox.classList.add('hidden');
+
+        if (mode === 'shared') {
+          desc.textContent = '全員で共有する1つのカウントダウンタイマーを画面中央に表示します。';
+          input.value = state.sharedDuration;
+        } else if (mode === 'chess') {
+          desc.textContent = '将棋の対局時計方式。自分の手番中だけ持ち時間が減り、「交代➔」で次の人に移ります。';
+          input.value = state.chessDuration;
+          byoyomiBox.classList.remove('hidden');
+          chessFallbackToggle.checked = state.chessFallbackToByoyomi;
+          document.getElementById('customByoyomiSecInput').value = state.chessByoyomiDuration;
+          if (state.chessFallbackToByoyomi) {
+            byoyomiDetail.classList.remove('hidden');
+          } else {
+            byoyomiDetail.classList.add('hidden');
+          }
+        } else if (mode === 'shot') {
+          desc.textContent = '1手ごとの秒読み方式。手番が回ってくるたびに設定秒数にリセットされてカウントダウンします。';
+          input.value = state.shotDuration;
+        }
+      }
+    }
+
     // ==========================================
-    // 3. レイアウト描画 (2人〜10人)
+    // 6. 中央タイマーコントロールボタンイベント
+    // ==========================================
+    document.getElementById('sharedTimerPlayBtn').addEventListener('click', () => {
+      if (state.sharedRemaining <= 0) state.sharedRemaining = state.sharedDuration;
+      isSharedRunning = !isSharedRunning;
+      render();
+    });
+
+    document.getElementById('sharedTimerResetBtn').addEventListener('click', () => {
+      isSharedRunning = false;
+      state.sharedRemaining = state.sharedDuration;
+      saveState();
+      render();
+    });
+
+    document.getElementById('turnTimerToggleBtn').addEventListener('click', () => {
+      isTurnTimerRunning = !isTurnTimerRunning;
+      render();
+    });
+
+    document.getElementById('turnTimerResetAllBtn').addEventListener('click', () => {
+      isTurnTimerRunning = false;
+      const baseSec = state.timerMode === 'chess' ? state.chessDuration : state.shotDuration;
+      state.players.forEach(p => {
+        p.timeRemaining = baseSec;
+        p.inByoyomi = false;
+      });
+      saveState();
+      render();
+    });
+
+    // ==========================================
+    // 7. レイアウト描画 (2人〜10人)
     // ==========================================
     const boardContainer = document.getElementById('boardContainer');
     const centerRoundBadge = document.getElementById('centerRoundBadge');
     const modalRoundNum = document.getElementById('modalRoundNum');
-    const centerMenuBtn = document.getElementById('centerMenuBtn');
+    const centerHub = document.getElementById('centerHub');
     const swapControlBar = document.getElementById('swapControlBar');
     const swapInstructionText = document.getElementById('swapInstructionText');
 
@@ -311,27 +813,40 @@
       centerRoundBadge.textContent = state.currentRound;
       modalRoundNum.textContent = state.currentRound;
 
-      // 配置変更モードと通常モードの中央UI切り替え
       if (isSwapMode) {
-        centerMenuBtn.classList.add('hidden');
+        centerHub.classList.add('hidden');
         swapControlBar.classList.remove('hidden');
-        if (selectedSwapSeatIdx === null) {
-          swapInstructionText.textContent = '入れ替える1人目をタップ';
-        } else {
-          const pName = state.players[selectedSwapSeatIdx].name;
-          swapInstructionText.textContent = `「${pName}」と入れ替える相手をタップ`;
-        }
+        swapInstructionText.textContent = selectedSwapSeatIdx === null
+          ? '入れ替える1人目をタップ'
+          : `「${state.players[selectedSwapSeatIdx].name}」と入れ替える相手をタップ`;
       } else {
-        centerMenuBtn.classList.remove('hidden');
+        centerHub.classList.remove('hidden');
         swapControlBar.classList.add('hidden');
       }
 
-      // 人数選択ボタンのハイライト更新
+      const sharedPill = document.getElementById('sharedTimerPill');
+      if (state.timerMode === 'shared') {
+        sharedPill.classList.remove('hidden');
+        document.getElementById('sharedTimerText').textContent = formatTime(state.sharedRemaining);
+        document.getElementById('sharedTimerPlayBtn').textContent = isSharedRunning ? '❚❚' : '▶';
+      } else {
+        sharedPill.classList.add('hidden');
+      }
+
+      const turnCtrlPill = document.getElementById('turnTimerControlPill');
+      if (state.timerMode === 'chess' || state.timerMode === 'shot') {
+        turnCtrlPill.classList.remove('hidden');
+        document.getElementById('turnTimerToggleIcon').textContent = isTurnTimerRunning ? '❚❚' : '▶';
+        document.getElementById('turnTimerToggleLabel').textContent = isTurnTimerRunning ? '一時停止' : 'タイマー開始';
+      } else {
+        turnCtrlPill.classList.add('hidden');
+      }
+
       document.querySelectorAll('#playerCountGrid button').forEach(btn => {
         const isCurrent = Number(btn.dataset.count) === count;
         btn.className = isCurrent
-          ? 'py-2.5 rounded-xl font-bold border-2 border-indigo-400 bg-indigo-600 text-white transition'
-          : 'py-2.5 rounded-xl font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition';
+          ? 'py-2 rounded-lg font-bold border-2 border-indigo-400 bg-indigo-600 text-white text-xs transition'
+          : 'py-2 rounded-lg font-bold border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs transition';
       });
 
       if (count === 2) {
@@ -343,7 +858,6 @@
       }
     }
 
-    // 【2人用】上下2分割（座席0: 上180度 / 座席1: 下0度）
     function renderTwoPlayers() {
       const wrapper = document.createElement('div');
       wrapper.className = 'w-full h-full flex flex-col divide-y-2 divide-slate-600';
@@ -352,30 +866,26 @@
       boardContainer.appendChild(wrapper);
     }
 
-    // 【3人用】Y字3分割（座席0: 下0度 / 座席1: 左90度 / 座席2: 右-90度）
     function renderThreePlayers() {
       const wrapper = document.createElement('div');
       wrapper.className = 'relative w-full h-full';
 
-      // 座席1: 左上 (90deg)
       const zone1 = document.createElement('div');
-      zone1.className = `player-zone absolute inset-0 ${getSwapZoneClasses(1)}`;
+      zone1.className = `player-zone absolute inset-0 ${getZoneStateClasses(1)}`;
       zone1.style.backgroundColor = state.players[1].bg;
       zone1.style.clipPath = 'polygon(0% 0%, 50% 0%, 50% 50%, 0% 85%)';
       zone1.innerHTML = `<div style="position:absolute; left:24%; top:36%; transform:translate(-50%,-50%)">${buildInnerUI(1, 90, 'compact')}</div>`;
       attachZoneEvents(zone1, 1, 90);
 
-      // 座席2: 右上 (-90deg)
       const zone2 = document.createElement('div');
-      zone2.className = `player-zone absolute inset-0 ${getSwapZoneClasses(2)}`;
+      zone2.className = `player-zone absolute inset-0 ${getZoneStateClasses(2)}`;
       zone2.style.backgroundColor = state.players[2].bg;
       zone2.style.clipPath = 'polygon(50% 0%, 100% 0%, 100% 85%, 50% 50%)';
       zone2.innerHTML = `<div style="position:absolute; left:76%; top:36%; transform:translate(-50%,-50%)">${buildInnerUI(2, -90, 'compact')}</div>`;
       attachZoneEvents(zone2, 2, -90);
 
-      // 座席0: 下部 (0deg)
       const zone0 = document.createElement('div');
-      zone0.className = `player-zone absolute inset-0 ${getSwapZoneClasses(0)}`;
+      zone0.className = `player-zone absolute inset-0 ${getZoneStateClasses(0)}`;
       zone0.style.backgroundColor = state.players[0].bg;
       zone0.style.clipPath = 'polygon(0% 85%, 50% 50%, 100% 85%, 100% 100%, 0% 100%)';
       zone0.innerHTML = `<div style="position:absolute; left:50%; top:78%; transform:translate(-50%,-50%)">${buildInnerUI(0, 0, 'compact')}</div>`;
@@ -395,7 +905,6 @@
       boardContainer.appendChild(wrapper);
     }
 
-    // 【4人〜10人用】テーブル上下対面グリッド
     function renderTableGridPlayers(count) {
       const bottomCount = Math.ceil(count / 2);
       const topCount = Math.floor(count / 2);
@@ -424,18 +933,29 @@
       boardContainer.appendChild(wrapper);
     }
 
-    function getSwapZoneClasses(seatIdx) {
-      if (!isSwapMode) return '';
-      if (selectedSwapSeatIdx === seatIdx) {
-        return 'ring-4 ring-inset ring-amber-400 brightness-125';
+    function getZoneStateClasses(seatIdx) {
+      if (isSwapMode) {
+        return selectedSwapSeatIdx === seatIdx
+          ? 'ring-4 ring-inset ring-amber-400 brightness-125'
+          : 'swap-target-zone';
       }
-      return 'swap-target-zone';
+      const isIndividualTimer = state.timerMode === 'chess' || state.timerMode === 'shot';
+      if (isIndividualTimer) {
+        const p = state.players[seatIdx];
+        const isMyTurn = (state.activeTurnSeatIdx % state.playerCount) === seatIdx;
+        const isTimeUp = p.timeRemaining <= 0;
+        if (isTimeUp) return 'timeup-flash';
+        if (isMyTurn) {
+          return p.inByoyomi ? 'active-byoyomi-zone' : 'active-turn-zone';
+        }
+      }
+      return '';
     }
 
     function createRectZone(seatIdx, rotateDeg, sizeMode) {
       const p = state.players[seatIdx];
       const zone = document.createElement('div');
-      zone.className = `player-zone relative w-full h-full flex items-center justify-center overflow-hidden ${getSwapZoneClasses(seatIdx)}`;
+      zone.className = `player-zone relative w-full h-full flex items-center justify-center overflow-hidden ${getZoneStateClasses(seatIdx)}`;
       zone.style.backgroundColor = p.bg;
 
       zone.innerHTML = buildInnerUI(seatIdx, rotateDeg, sizeMode);
@@ -444,7 +964,7 @@
     }
 
     // ==========================================
-    // 4. 各プレイヤー内のUIパーツ
+    // 8. 各プレイヤー内のUIパーツ
     // ==========================================
     function buildInnerUI(seatIdx, rotateDeg, sizeMode = 'normal') {
       const p = state.players[seatIdx];
@@ -452,24 +972,9 @@
       const curRoundScore = getCurrentRoundScore(p);
       const curSign = curRoundScore > 0 ? `+${curRoundScore}` : `${curRoundScore}`;
 
-      let ovalClass = 'w-28 h-40 sm:w-36 sm:h-48 text-5xl sm:text-6xl';
-      let nameClass = 'text-xl sm:text-2xl';
-      let btnClass = 'w-9 h-9 sm:w-11 sm:h-11 text-lg';
-      let gapClass = 'gap-1.5 sm:gap-2.5';
+      const isIndividualTimer = state.timerMode === 'chess' || state.timerMode === 'shot';
+      const isMyTurn = isIndividualTimer && ((state.activeTurnSeatIdx % state.playerCount) === seatIdx);
 
-      if (sizeMode === 'compact') {
-        ovalClass = 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-5xl';
-        nameClass = 'text-base sm:text-xl';
-        btnClass = 'w-7 h-7 sm:w-9 sm:h-9 text-base';
-        gapClass = 'gap-1 sm:gap-2';
-      } else if (sizeMode === 'mini') {
-        ovalClass = 'w-14 h-24 sm:w-20 sm:h-32 text-2xl sm:text-4xl';
-        nameClass = 'text-sm sm:text-lg';
-        btnClass = 'w-6 h-6 sm:w-8 sm:h-8 text-xs sm:text-base';
-        gapClass = 'gap-0.5 sm:gap-1.5';
-      }
-
-      // 配置変更モード中は操作ボタンを隠し、スワップ選択バッジを表示
       if (isSwapMode) {
         const isSelected = selectedSwapSeatIdx === seatIdx;
         return `
@@ -477,12 +982,64 @@
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black ${isSelected ? 'bg-amber-400 text-slate-950' : 'bg-black/50 text-amber-300 border border-amber-400/50'}">
               ${isSelected ? '選択中' : 'タップで入替'}
             </span>
-            <div class="font-black ${nameClass}" style="color: ${p.accent};">${escapeHTML(p.name)}</div>
-            <div class="px-4 py-1 rounded-full bg-black/40 border border-white/20 font-mono font-bold text-lg">
+            <div class="font-black text-xl" style="color: ${p.accent};">${escapeHTML(p.name)}</div>
+            <div class="px-4 py-1 rounded-full bg-black/40 border border-white/20 font-mono font-bold text-base">
               ${totalScore} pt
             </div>
           </div>
         `;
+      }
+
+      let timerBadgeColorClass = 'bg-black/45 text-slate-300 border border-white/10';
+      if (isMyTurn) {
+        timerBadgeColorClass = p.inByoyomi
+          ? 'bg-orange-500 text-slate-950'
+          : 'bg-emerald-500 text-slate-950';
+      } else if (p.inByoyomi) {
+        timerBadgeColorClass = 'bg-orange-950/80 text-orange-300 border border-orange-500/40';
+      }
+
+      const byoyomiTag = (state.timerMode === 'chess' && p.inByoyomi)
+        ? `<span class="text-[9px] font-black px-1 rounded bg-orange-500/20 text-orange-300 border border-orange-400/40">秒読み</span>`
+        : '';
+
+      const timerBadgeHTML = isIndividualTimer ? `
+        <div class="flex flex-wrap items-center justify-center gap-1 mt-0.5">
+          ${byoyomiTag}
+          <span
+            data-timer-seat="${seatIdx}"
+            class="px-2 py-0.5 rounded-md font-mono font-black ${sizeMode === 'mini' ? 'text-xs' : 'text-sm'} ${timerBadgeColorClass}"
+          >${formatTime(p.timeRemaining, p.inByoyomi)}</span>
+          ${isMyTurn ? `
+            <button
+              type="button"
+              class="next-turn-btn px-2 py-0.5 rounded-md bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black ${sizeMode === 'mini' ? 'text-[10px]' : 'text-xs'} shadow transition"
+            >交代➔</button>
+          ` : ''}
+        </div>
+      ` : '';
+
+      let ovalClass = isIndividualTimer
+        ? 'w-24 h-32 sm:w-32 sm:h-40 text-4xl sm:text-5xl'
+        : 'w-28 h-40 sm:w-36 sm:h-48 text-5xl sm:text-6xl';
+      let nameClass = 'text-lg sm:text-2xl';
+      let btnClass = 'w-8 h-8 sm:w-11 sm:h-11 text-base sm:text-lg';
+      let gapClass = 'gap-1.5 sm:gap-2.5';
+
+      if (sizeMode === 'compact') {
+        ovalClass = isIndividualTimer
+          ? 'w-16 h-22 sm:w-20 sm:h-28 text-2xl sm:text-4xl'
+          : 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-5xl';
+        nameClass = 'text-base sm:text-xl';
+        btnClass = 'w-7 h-7 sm:w-9 sm:h-9 text-sm sm:text-base';
+        gapClass = 'gap-1 sm:gap-2';
+      } else if (sizeMode === 'mini') {
+        ovalClass = isIndividualTimer
+          ? 'w-12 h-18 sm:w-16 sm:h-24 text-xl sm:text-3xl'
+          : 'w-14 h-24 sm:w-20 sm:h-32 text-2xl sm:text-4xl';
+        nameClass = 'text-xs sm:text-base';
+        btnClass = 'w-6 h-6 sm:w-7 sm:h-7 text-xs';
+        gapClass = 'gap-0.5 sm:gap-1';
       }
 
       if (sizeMode === 'mini') {
@@ -490,9 +1047,13 @@
           <div class="flex flex-col items-center justify-center gap-0.5" style="transform: rotate(${rotateDeg}deg);">
             <button
               type="button"
-              class="edit-name-btn px-2 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[72px] truncate"
+              class="edit-name-btn px-1.5 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[70px] truncate flex items-center gap-1"
               style="color: ${p.accent};"
-            >${escapeHTML(p.name)}</button>
+              title="タップして名前・色を変更"
+            >
+              <span class="w-2 h-2 rounded-full shrink-0" style="background-color:${p.accent}"></span>
+              <span class="truncate">${escapeHTML(p.name)}</span>
+            </button>
 
             <button
               type="button"
@@ -500,13 +1061,14 @@
               style="border-color: ${p.accent};"
             >
               <span>${totalScore}</span>
-              <span class="text-[10px] font-normal text-slate-300 leading-none mt-0.5">R${state.currentRound}: ${curSign}</span>
+              <span class="text-[9px] font-normal text-slate-300 leading-none">R${state.currentRound}:${curSign}</span>
             </button>
 
-            <div class="flex items-center gap-1.5 mt-0.5">
+            <div class="flex items-center gap-1 mt-0.5">
               <button type="button" class="minus-one-btn ${btnClass} rounded-full bg-black/35 hover:bg-black/55 active:scale-90 border border-white/15 font-bold flex items-center justify-center">−</button>
               <button type="button" class="plus-one-btn ${btnClass} rounded-full bg-black/35 hover:bg-black/55 active:scale-90 border border-white/15 font-bold flex items-center justify-center">＋</button>
             </div>
+            ${timerBadgeHTML}
           </div>
         `;
       }
@@ -515,10 +1077,13 @@
         <div class="flex flex-col items-center justify-center gap-1" style="transform: rotate(${rotateDeg}deg);">
           <button
             type="button"
-            class="edit-name-btn px-3 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[120px] truncate"
+            class="edit-name-btn px-3 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[130px] truncate flex items-center gap-1.5"
             style="color: ${p.accent};"
-            title="タップして名前変更"
-          >${escapeHTML(p.name)}</button>
+            title="タップして名前・色を変更"
+          >
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:${p.accent}"></span>
+            <span class="truncate">${escapeHTML(p.name)}</span>
+          </button>
 
           <div class="flex items-center ${gapClass}">
             <button
@@ -533,7 +1098,7 @@
               title="タップしてテンキー入力"
             >
               <span class="leading-none">${totalScore}</span>
-              <span class="text-xs font-semibold text-slate-300/90 mt-1.5">R${state.currentRound}: ${curSign}</span>
+              <span class="text-[11px] font-semibold text-slate-300/90 mt-1">R${state.currentRound}: ${curSign}</span>
             </button>
 
             <button
@@ -541,11 +1106,12 @@
               class="plus-one-btn ${btnClass} rounded-full bg-black/30 hover:bg-black/50 active:scale-90 border border-white/15 font-bold flex items-center justify-center"
             >＋</button>
           </div>
+
+          ${timerBadgeHTML}
         </div>
       `;
     }
 
-    // イベント紐付け（通常モード時 vs 配置変更モード時）
     function attachZoneEvents(container, seatIdx, rotateDeg) {
       if (isSwapMode) {
         container.addEventListener('click', (e) => {
@@ -553,6 +1119,14 @@
           handleSeatSwapTap(seatIdx);
         });
         return;
+      }
+
+      const nextTurnBtn = container.querySelector('.next-turn-btn');
+      if (nextTurnBtn) {
+        nextTurnBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          advanceTurn(seatIdx);
+        });
       }
 
       container.querySelector('.plus-one-btn').addEventListener('click', (e) => {
@@ -576,52 +1150,39 @@
         openKeypadModal(seatIdx, rotateDeg);
       });
 
+      // プレイヤー名タップで「名前＆テーマカラー変更モーダル」を開く
       container.querySelector('.edit-name-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        const currentName = state.players[seatIdx].name;
-        const newName = prompt('プレイヤー名を入力してください', currentName);
-        if (newName !== null && newName.trim() !== '') {
-          state.players[seatIdx].name = newName.trim().slice(0, 8);
-          saveState();
-          render();
-        }
+        openPlayerEditModal(seatIdx, rotateDeg);
       });
     }
 
     // ==========================================
-    // 5. 配置変更（座席スワップ＆全体回転）ロジック
+    // 9. 配置変更・ラウンド・履歴・テンキー各種制御
     // ==========================================
     function handleSeatSwapTap(seatIdx) {
       if (selectedSwapSeatIdx === null) {
-        // 1人目を選択
         selectedSwapSeatIdx = seatIdx;
         render();
       } else if (selectedSwapSeatIdx === seatIdx) {
-        // 同じ人をもう一度タップしたら選択解除
         selectedSwapSeatIdx = null;
         render();
       } else {
-        // 1人目と2人目のプレイヤーオブジェクト（名前・全ラウンド記録・カラー）を丸ごと交換
         const temp = state.players[selectedSwapSeatIdx];
         state.players[selectedSwapSeatIdx] = state.players[seatIdx];
         state.players[seatIdx] = temp;
-
         selectedSwapSeatIdx = null;
         saveState();
         render();
       }
     }
 
-    // 現在表示中のメンバーの座席を時計回りに1つずつずらす
     document.getElementById('rotateAllSeatsBtn').addEventListener('click', () => {
       const count = state.playerCount;
       const activeSlice = state.players.slice(0, count);
       const lastPlayer = activeSlice.pop();
       activeSlice.unshift(lastPlayer);
-
-      for (let i = 0; i < count; i++) {
-        state.players[i] = activeSlice[i];
-      }
+      for (let i = 0; i < count; i++) state.players[i] = activeSlice[i];
       selectedSwapSeatIdx = null;
       saveState();
       render();
@@ -640,9 +1201,6 @@
       render();
     });
 
-    // ==========================================
-    // 6. ラウンド進行・履歴テーブル機能
-    // ==========================================
     document.getElementById('nextRoundBtn').addEventListener('click', () => {
       state.currentRound += 1;
       ensureRoundArrayLength(state.currentRound);
@@ -659,16 +1217,11 @@
     });
 
     const historyModal = document.getElementById('historyModal');
-    const historyTableHead = document.getElementById('historyTableHead');
-    const historyTableBody = document.getElementById('historyTableBody');
-    const historyTableFoot = document.getElementById('historyTableFoot');
-
     document.getElementById('openHistoryBtn').addEventListener('click', () => {
       settingsModal.classList.add('hidden');
       renderHistoryTable();
       historyModal.classList.remove('hidden');
     });
-
     document.getElementById('closeHistoryBtn').addEventListener('click', () => {
       historyModal.classList.add('hidden');
     });
@@ -680,14 +1233,10 @@
       const activePlayers = state.players.slice(0, state.playerCount);
       const maxRound = Math.max(state.currentRound, ...activePlayers.map(p => p.roundScores.length));
 
-      historyTableHead.innerHTML = `
+      document.getElementById('historyTableHead').innerHTML = `
         <tr>
           <th class="px-3 py-2.5 sticky left-0 bg-slate-800">R</th>
-          ${activePlayers.map(p => `
-            <th class="px-3 py-2.5 text-right whitespace-nowrap" style="color:${p.accent}">
-              ${escapeHTML(p.name)}
-            </th>
-          `).join('')}
+          ${activePlayers.map(p => `<th class="px-3 py-2.5 text-right whitespace-nowrap" style="color:${p.accent}">${escapeHTML(p.name)}</th>`).join('')}
         </tr>
       `;
 
@@ -696,34 +1245,25 @@
         const isCurrent = r === state.currentRound;
         bodyHTML += `
           <tr class="${isCurrent ? 'bg-indigo-950/40' : 'hover:bg-slate-900'}">
-            <td class="px-3 py-2 font-mono font-bold sticky left-0 ${isCurrent ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-950 text-slate-400'}">
-              R${r}
-            </td>
+            <td class="px-3 py-2 font-mono font-bold sticky left-0 ${isCurrent ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-950 text-slate-400'}">R${r}</td>
             ${activePlayers.map((p, seatIdx) => {
               const val = p.roundScores[r - 1] ?? 0;
               const disp = val > 0 ? `+${val}` : `${val}`;
               return `
                 <td class="px-3 py-2 text-right font-mono">
-                  <button
-                    type="button"
-                    class="edit-cell-btn px-2 py-1 rounded hover:bg-slate-800 underline decoration-slate-600"
-                    data-seat="${seatIdx}"
-                    data-round="${r}"
-                  >${disp}</button>
+                  <button type="button" class="edit-cell-btn px-2 py-1 rounded hover:bg-slate-800 underline decoration-slate-600" data-seat="${seatIdx}" data-round="${r}">${disp}</button>
                 </td>
               `;
             }).join('')}
           </tr>
         `;
       }
-      historyTableBody.innerHTML = bodyHTML;
+      document.getElementById('historyTableBody').innerHTML = bodyHTML;
 
-      historyTableFoot.innerHTML = `
+      document.getElementById('historyTableFoot').innerHTML = `
         <tr>
           <td class="px-3 py-2.5 sticky left-0 bg-slate-900">合計</td>
-          ${activePlayers.map(p => `
-            <td class="px-3 py-2.5 text-right font-mono text-base">${getTotalScore(p)}</td>
-          `).join('')}
+          ${activePlayers.map(p => `<td class="px-3 py-2.5 text-right font-mono text-base">${getTotalScore(p)}</td>`).join('')}
         </tr>
       `;
 
@@ -733,7 +1273,7 @@
           const round = Number(btn.dataset.round);
           const player = state.players[seatIdx];
           const oldVal = player.roundScores[round - 1] ?? 0;
-          const input = prompt(`${player.name} の R${round} 獲得点を入力してください（例: 15, -5）`, oldVal);
+          const input = prompt(`${player.name} の R${round} 獲得点を入力してください`, oldVal);
           if (input !== null && input.trim() !== '' && !isNaN(Number(input))) {
             ensureRoundArrayLength(round);
             player.roundScores[round - 1] = parseInt(input, 10);
@@ -745,39 +1285,30 @@
       });
     }
 
-    // ==========================================
-    // 7. テンキーモーダル（現在ラウンドに加算）
-    // ==========================================
+    // テンキー
     const keypadModal = document.getElementById('keypadModal');
     const keypadCard = document.getElementById('keypadCard');
-    const kpSubTitle = document.getElementById('kpSubTitle');
-    const kpPlayerName = document.getElementById('kpPlayerName');
-    const kpSign = document.getElementById('kpSign');
-    const kpDigits = document.getElementById('kpDigits');
-
     function openKeypadModal(seatIdx, rotateDeg) {
       activeSeatIdx = seatIdx;
       kpDigitsStr = '0';
       kpIsNegative = false;
       const p = state.players[seatIdx];
-      kpSubTitle.textContent = `R${state.currentRound} の得点を加減算`;
-      kpPlayerName.textContent = `${p.name}（累計: ${getTotalScore(p)}点）`;
+      document.getElementById('kpSubTitle').textContent = `R${state.currentRound} の得点を加減算`;
+      document.getElementById('kpPlayerName').textContent = `${p.name}（累計: ${getTotalScore(p)}点）`;
       keypadCard.style.transform = `rotate(${rotateDeg}deg)`;
       updateKpDisplay();
       keypadModal.classList.remove('hidden');
     }
-
     function closeKeypadModal() {
       keypadModal.classList.add('hidden');
       activeSeatIdx = null;
     }
-
     function updateKpDisplay() {
-      kpSign.textContent = kpIsNegative ? '-' : '+';
-      kpSign.className = kpIsNegative ? 'text-rose-400' : 'text-emerald-400';
-      kpDigits.textContent = kpDigitsStr;
+      const signEl = document.getElementById('kpSign');
+      signEl.textContent = kpIsNegative ? '-' : '+';
+      signEl.className = kpIsNegative ? 'text-rose-400' : 'text-emerald-400';
+      document.getElementById('kpDigits').textContent = kpDigitsStr;
     }
-
     document.querySelectorAll('.kp-num').forEach(btn => {
       btn.addEventListener('click', () => {
         const n = btn.dataset.n;
@@ -786,18 +1317,15 @@
         updateKpDisplay();
       });
     });
-
     document.getElementById('kpToggleSign').addEventListener('click', () => {
       kpIsNegative = !kpIsNegative;
       updateKpDisplay();
     });
-
     document.getElementById('kpClear').addEventListener('click', () => {
       kpDigitsStr = '0';
       kpIsNegative = false;
       updateKpDisplay();
     });
-
     document.getElementById('kpConfirm').addEventListener('click', () => {
       if (activeSeatIdx !== null) {
         const val = parseInt(kpDigitsStr, 10) || 0;
@@ -808,17 +1336,15 @@
       }
       closeKeypadModal();
     });
-
     document.getElementById('closeKpBtn').addEventListener('click', closeKeypadModal);
     keypadModal.addEventListener('click', (e) => {
       if (e.target === keypadModal) closeKeypadModal();
     });
 
-    // ==========================================
-    // 8. 中央設定モーダル制御
-    // ==========================================
+    // 中央設定モーダル
     const settingsModal = document.getElementById('settingsModal');
-    centerMenuBtn.addEventListener('click', () => {
+    document.getElementById('centerMenuBtn').addEventListener('click', () => {
+      updateTimerSettingsUI();
       settingsModal.classList.remove('hidden');
     });
     document.getElementById('closeSettingsBtn').addEventListener('click', () => {
@@ -829,9 +1355,18 @@
     });
 
     document.getElementById('resetScoresBtn').addEventListener('click', () => {
-      if (confirm('全ラウンドの記録と得点をリセットして R1 から始めますか？')) {
+      if (confirm('全ラウンドの記録と得点・タイマーを初期化しますか？')) {
         state.currentRound = 1;
-        state.players.forEach(p => p.roundScores = [0]);
+        state.activeTurnSeatIdx = 0;
+        isSharedRunning = false;
+        isTurnTimerRunning = false;
+        state.sharedRemaining = state.sharedDuration;
+        const baseSec = state.timerMode === 'chess' ? state.chessDuration : state.shotDuration;
+        state.players.forEach(p => {
+          p.roundScores = [0];
+          p.timeRemaining = baseSec;
+          p.inByoyomi = false;
+        });
         saveState();
         render();
         settingsModal.classList.add('hidden');
@@ -845,6 +1380,7 @@
     }
 
     // 初回描画
+    updateTimerSettingsUI();
     render();
   </script>
 </body>
