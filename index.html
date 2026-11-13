@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>テーブルトップ得点＆タイマーボード</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -15,7 +15,7 @@
       margin: 0;
       padding: 0;
       width: 100%;
-      height: 100%;
+      height: 100dvh;
       overflow: hidden;
       background-color: #090d16;
     }
@@ -58,8 +58,8 @@
 </head>
 <body class="text-white font-sans">
 
-  <!-- メイン全画面コンテナ -->
-  <div id="boardContainer" class="relative w-screen h-screen overflow-hidden">
+  <!-- メイン全画面コンテナ（100dvhでブラウザのバーを除いた実表示領域にピッタリ合わせる） -->
+  <div id="boardContainer" class="relative w-full h-[100dvh] overflow-hidden">
     <!-- JSで2〜10人のレイアウトを動的生成 -->
   </div>
 
@@ -76,10 +76,11 @@
     <!-- 中央ラウンド＆設定ボタン -->
     <button
       id="centerMenuBtn"
-      class="w-14 h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
+      class="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-slate-900/95 border-2 border-indigo-400 shadow-2xl flex flex-col items-center justify-center text-white hover:scale-105 active:scale-95 transition"
+      style="width: 52px; height: 52px;"
       title="ラウンド・タイマー・配置設定"
     >
-      <span class="text-[10px] font-bold text-indigo-300 leading-none">ROUND</span>
+      <span class="text-[9px] font-bold text-indigo-300 leading-none">ROUND</span>
       <span id="centerRoundBadge" class="text-base font-black leading-tight">1</span>
     </button>
 
@@ -119,9 +120,9 @@
     </div>
   </div>
 
-  <!-- プレイヤー名＆カラー変更モーダル（その人の座る向きに回転して開く） -->
+  <!-- プレイヤー名＆カラー変更モーダル（常に正位置で表示） -->
   <div id="playerEditModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div id="playerEditCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl transition-transform">
+    <div id="playerEditCard" class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="font-bold text-base text-slate-200">プレイヤー設定</h3>
         <button id="closePlayerEditBtn" type="button" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
@@ -159,7 +160,7 @@
 
   <!-- 中央設定モーダル -->
   <div id="settingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl max-h-[85dvh] overflow-y-auto">
       <div class="flex justify-between items-center">
         <h2 class="font-bold text-lg">ゲーム・タイマー設定</h2>
         <button id="closeSettingsBtn" class="text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
@@ -266,7 +267,7 @@
 
   <!-- ラウンド別スコア履歴モーダル -->
   <div id="historyModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-5 space-y-4 shadow-2xl max-h-[85dvh] flex flex-col">
       <div class="flex justify-between items-center shrink-0">
         <div>
           <h2 class="font-bold text-lg">ラウンド別スコア表</h2>
@@ -349,7 +350,6 @@
     // ==========================================
     const STORAGE_KEY = 'tabletop_scoreboard_colors_v1';
 
-    // ボードゲームのコマ色に合わせやすい10種のテーマカラー
     const COLOR_THEMES = [
       { label: 'ブルー',     bg: '#172554', accent: '#60a5fa' },
       { label: 'レッド',     bg: '#450a0a', accent: '#f87171' },
@@ -394,7 +394,6 @@
     let isSwapMode = false;
     let selectedSwapSeatIdx = null;
 
-    // プレイヤー編集モーダル用の状態
     let editingSeatIdx = null;
     let selectedEditTheme = COLOR_THEMES[0];
 
@@ -453,21 +452,18 @@
     }
 
     // ==========================================
-    // 3. プレイヤー名＆カラー変更モーダル制御
+    // 3. プレイヤー名＆カラー変更モーダル制御（常に正位置で表示）
     // ==========================================
     const playerEditModal = document.getElementById('playerEditModal');
-    const playerEditCard = document.getElementById('playerEditCard');
     const editPlayerNameInput = document.getElementById('editPlayerNameInput');
     const colorPaletteGrid = document.getElementById('colorPaletteGrid');
 
-    function openPlayerEditModal(seatIdx, rotateDeg) {
+    function openPlayerEditModal(seatIdx) {
       editingSeatIdx = seatIdx;
       const p = state.players[seatIdx];
       editPlayerNameInput.value = p.name;
       selectedEditTheme = COLOR_THEMES.find(t => t.accent === p.accent) || { bg: p.bg, accent: p.accent };
 
-      // プレイヤーが座っている向きに合わせてカードを回転
-      playerEditCard.style.transform = `rotate(${rotateDeg}deg)`;
       renderColorPaletteButtons();
       playerEditModal.classList.remove('hidden');
     }
@@ -964,7 +960,7 @@
     }
 
     // ==========================================
-    // 8. 各プレイヤー内のUIパーツ
+    // 8. 各プレイヤー内のUIパーツ（スマホ画面に最適化された高さ・バランス）
     // ==========================================
     function buildInnerUI(seatIdx, rotateDeg, sizeMode = 'normal') {
       const p = state.players[seatIdx];
@@ -978,7 +974,7 @@
       if (isSwapMode) {
         const isSelected = selectedSwapSeatIdx === seatIdx;
         return `
-          <div class="flex flex-col items-center justify-center gap-1.5 pointer-events-none" style="transform: rotate(${rotateDeg}deg);">
+          <div class="flex flex-col items-center justify-center gap-1 pointer-events-none" style="transform: rotate(${rotateDeg}deg);">
             <span class="px-2.5 py-0.5 rounded-full text-[11px] font-black ${isSelected ? 'bg-amber-400 text-slate-950' : 'bg-black/50 text-amber-300 border border-amber-400/50'}">
               ${isSelected ? '選択中' : 'タップで入替'}
             </span>
@@ -1019,24 +1015,25 @@
         </div>
       ` : '';
 
+      // スマホの縦幅でも上下にはみ出さないバランスの楕円サイズ
       let ovalClass = isIndividualTimer
-        ? 'w-24 h-32 sm:w-32 sm:h-40 text-4xl sm:text-5xl'
-        : 'w-28 h-40 sm:w-36 sm:h-48 text-5xl sm:text-6xl';
-      let nameClass = 'text-lg sm:text-2xl';
+        ? 'w-20 h-28 sm:w-28 sm:h-36 text-3xl sm:text-5xl'
+        : 'w-24 h-32 sm:w-32 sm:h-44 text-4xl sm:text-6xl';
+      let nameClass = 'text-base sm:text-2xl';
       let btnClass = 'w-8 h-8 sm:w-11 sm:h-11 text-base sm:text-lg';
       let gapClass = 'gap-1.5 sm:gap-2.5';
 
       if (sizeMode === 'compact') {
         ovalClass = isIndividualTimer
-          ? 'w-16 h-22 sm:w-20 sm:h-28 text-2xl sm:text-4xl'
-          : 'w-20 h-28 sm:w-24 sm:h-36 text-3xl sm:text-5xl';
-        nameClass = 'text-base sm:text-xl';
+          ? 'w-15 h-20 sm:w-20 sm:h-28 text-2xl sm:text-4xl'
+          : 'w-18 h-24 sm:w-24 sm:h-34 text-3xl sm:text-5xl';
+        nameClass = 'text-sm sm:text-xl';
         btnClass = 'w-7 h-7 sm:w-9 sm:h-9 text-sm sm:text-base';
         gapClass = 'gap-1 sm:gap-2';
       } else if (sizeMode === 'mini') {
         ovalClass = isIndividualTimer
-          ? 'w-12 h-18 sm:w-16 sm:h-24 text-xl sm:text-3xl'
-          : 'w-14 h-24 sm:w-20 sm:h-32 text-2xl sm:text-4xl';
+          ? 'w-12 h-16 sm:w-16 sm:h-24 text-xl sm:text-3xl'
+          : 'w-14 h-20 sm:w-20 sm:h-28 text-2xl sm:text-4xl';
         nameClass = 'text-xs sm:text-base';
         btnClass = 'w-6 h-6 sm:w-7 sm:h-7 text-xs';
         gapClass = 'gap-0.5 sm:gap-1';
@@ -1077,7 +1074,7 @@
         <div class="flex flex-col items-center justify-center gap-1" style="transform: rotate(${rotateDeg}deg);">
           <button
             type="button"
-            class="edit-name-btn px-3 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[130px] truncate flex items-center gap-1.5"
+            class="edit-name-btn px-2.5 py-0.5 rounded-full ${nameClass} font-black tracking-wider hover:bg-white/10 transition max-w-[130px] truncate flex items-center gap-1.5"
             style="color: ${p.accent};"
             title="タップして名前・色を変更"
           >
@@ -1098,7 +1095,7 @@
               title="タップしてテンキー入力"
             >
               <span class="leading-none">${totalScore}</span>
-              <span class="text-[11px] font-semibold text-slate-300/90 mt-1">R${state.currentRound}: ${curSign}</span>
+              <span class="text-[10px] font-semibold text-slate-300/90 mt-1">R${state.currentRound}: ${curSign}</span>
             </button>
 
             <button
@@ -1150,10 +1147,9 @@
         openKeypadModal(seatIdx, rotateDeg);
       });
 
-      // プレイヤー名タップで「名前＆テーマカラー変更モーダル」を開く
       container.querySelector('.edit-name-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        openPlayerEditModal(seatIdx, rotateDeg);
+        openPlayerEditModal(seatIdx);
       });
     }
 
