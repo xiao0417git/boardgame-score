@@ -1224,8 +1224,12 @@
 
       document.getElementById('historyTableHead').innerHTML = `
         <tr>
-          <th class="px-3 py-2.5 sticky left-0 bg-slate-800">R</th>
-          ${activePlayers.map(p => `<th class="px-3 py-2.5 text-right whitespace-nowrap" style="color:${p.accent}">${escapeHTML(p.name)}</th>`).join('')}
+          <th class="w-14 px-3 py-2.5 text-left sticky left-0 bg-slate-800 z-20">R</th>
+          ${activePlayers.map(p => `
+            <th class="min-w-[4.5rem] px-3 py-2.5 text-right whitespace-nowrap font-bold" style="color:${p.accent}">
+              ${escapeHTML(p.name)}
+            </th>
+          `).join('')}
         </tr>
       `;
 
@@ -1234,13 +1238,18 @@
         const isCurrent = r === state.currentRound;
         bodyHTML += `
           <tr class="${isCurrent ? 'bg-indigo-950/40' : 'hover:bg-slate-900'}">
-            <td class="px-3 py-2 font-mono font-bold sticky left-0 ${isCurrent ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-950 text-slate-400'}">R${r}</td>
+            <td class="w-14 px-3 py-2 text-left font-mono font-bold sticky left-0 z-10 ${isCurrent ? 'bg-indigo-950 text-indigo-300' : 'bg-slate-950 text-slate-400'}">R${r}</td>
             ${activePlayers.map((p, seatIdx) => {
               const val = p.roundScores[r - 1] ?? 0;
               const disp = val > 0 ? `+${val}` : `${val}`;
               return `
-                <td class="px-3 py-2 text-right font-mono">
-                  <button type="button" class="edit-cell-btn px-2 py-1 rounded hover:bg-slate-800 underline decoration-slate-600" data-seat="${seatIdx}" data-round="${r}">${disp}</button>
+                <td class="min-w-[4.5rem] px-3 py-2 text-right font-mono tabular-nums">
+                  <button
+                    type="button"
+                    class="edit-cell-btn inline-block w-full text-right py-0.5 rounded hover:bg-slate-800 underline decoration-slate-600"
+                    data-seat="${seatIdx}"
+                    data-round="${r}"
+                  >${disp}</button>
                 </td>
               `;
             }).join('')}
@@ -1251,8 +1260,12 @@
 
       document.getElementById('historyTableFoot').innerHTML = `
         <tr>
-          <td class="px-3 py-2.5 sticky left-0 bg-slate-900">合計</td>
-          ${activePlayers.map(p => `<td class="px-3 py-2.5 text-right font-mono text-base">${getTotalScore(p)}</td>`).join('')}
+          <td class="w-14 px-3 py-2.5 text-left sticky left-0 bg-slate-900 z-20">合計</td>
+          ${activePlayers.map(p => `
+            <td class="min-w-[4.5rem] px-3 py-2.5 text-right font-mono tabular-nums text-base">
+              ${getTotalScore(p)}
+            </td>
+          `).join('')}
         </tr>
       `;
 
